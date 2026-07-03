@@ -53,7 +53,7 @@ docker compose -f docker-compose.yml build
 NGINX_IMAGE="${NGINX_BASE_IMAGE:-nginx:1.27-alpine}"
 echo "Pulling nginx image..."
 docker pull "$NGINX_IMAGE"
-docker tag "$NGINX_IMAGE" ruoyi-ai/nginx:latest
+docker tag "$NGINX_IMAGE" easy-agent-gateway/nginx:latest
 
 sh "$ROOT_DIR/deploy/fix-volume-perms.sh"
 
@@ -71,5 +71,5 @@ echo ""
 echo "Deployment complete."
 echo "  API:  http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo '127.0.0.1')/"
 echo "  Docs: /docs"
-echo "  Offline bundle: deploy/ruoyi-ai-offline-bundle.tar.gz"
+echo "  Offline bundle: deploy/easy-agent-gateway-offline-bundle.tar.gz"
 echo "  Offline reload:   sh deploy/install-on-target.sh"

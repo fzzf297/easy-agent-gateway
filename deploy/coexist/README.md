@@ -1,6 +1,6 @@
-# 经典 RuoYi 与 ruoyi-ai 共存部署
+# 经典 RuoYi 与 easy-agent-gateway 共存部署
 
-两套系统**完全独立**：不同目录、不同数据库、不同进程，仅共用 80 端口（由 ruoyi-ai 的 nginx 按路径分流）。
+两套系统**完全独立**：不同目录、不同数据库、不同进程，仅共用 80 端口（由 easy-agent-gateway 的 nginx 按路径分流）。
 
 ## 你要部署的是哪个？
 
@@ -13,33 +13,33 @@
 
 ## 隔离原则（避免冲突）
 
-| 资源 | ruoyi-ai | 经典 RuoYi |
+| 资源 | easy-agent-gateway | 经典 RuoYi |
 |------|----------|------------|
-| 代码目录 | `/opt/ruoyi-ai` | `/opt/ruoyi-classic`（单独 clone） |
+| 代码目录 | `/opt/easy-agent-gateway` | `/opt/ruoyi-classic`（单独 clone） |
 | 数据库 | SQLite（容器卷） | MySQL（独立容器/库 `ry`） |
 | 后端端口 | 8000/8001（仅 Docker 内网） | **8080 仅本机** |
 | 对外入口 | nginx 路径 `/api/admin/` `/api/agent/` `/docs` | nginx 路径 `/`（其余全部） |
 | 认证 | 各自独立，互不通票 | 各自独立 |
 
-**不会冲突**：RuoYi 用 `/login`、`/system/` 等；ruoyi-ai 用 `/api/admin/`、`/api/agent/`，路径不重叠。
+**不会冲突**：RuoYi 用 `/login`、`/system/` 等；easy-agent-gateway 用 `/api/admin/`、`/api/agent/`，路径不重叠。
 
 ## 1.8G 内存调试策略
 
 同时跑两套时建议：
 
 ```bash
-# ruoyi-ai 停掉 agent，省 ~80MB
-sh /opt/ruoyi-ai/deploy/debug-stack.sh
+# easy-agent-gateway 停掉 agent，省 ~80MB
+sh /opt/easy-agent-gateway/deploy/debug-stack.sh
 
 # 已加 swap
-sh /opt/ruoyi-ai/deploy/add-swap.sh
+sh /opt/easy-agent-gateway/deploy/add-swap.sh
 ```
 
 | 组件 | 建议内存上限 |
 |------|----------------|
 | MySQL | 384MB |
 | Java RuoYi | `-Xmx256m -Xms128m` |
-| ruoyi-ai admin+nginx | ~50MB |
+| easy-agent-gateway admin+nginx | ~50MB |
 | agent | 调试 RuoYi 时**先不启** |
 
 ## 部署步骤（服务器）
@@ -48,8 +48,8 @@ sh /opt/ruoyi-ai/deploy/add-swap.sh
 
 ```bash
 mkdir -p /opt/ruoyi-classic && cd /opt/ruoyi-classic
-cp /opt/ruoyi-ai/deploy/coexist/docker-compose.mysql.yml .
-cp /opt/ruoyi-ai/deploy/coexist/mysql.env.example .env
+cp /opt/easy-agent-gateway/deploy/coexist/docker-compose.mysql.yml .
+cp /opt/easy-agent-gateway/deploy/coexist/mysql.env.example .env
 # 编辑 .env 改密码
 docker compose -f docker-compose.mysql.yml up -d
 ```
@@ -83,14 +83,14 @@ nohup java -Xmx256m -Xms128m -jar ruoyi-admin/target/ruoyi-admin.jar \
 ### 4. 启用 nginx 共存
 
 ```bash
-cd /opt/ruoyi-ai
+cd /opt/easy-agent-gateway
 sh deploy/coexist/enable-coexist.sh
 ```
 
 访问：
 
 - 经典 RuoYi：`http://<服务器IP>/`（默认 admin/admin123）
-- ruoyi-ai 文档：`http://<服务器IP>/docs`
+- easy-agent-gateway 文档：`http://<服务器IP>/docs`
 
 ## 若你要的是 RuoYi-Vue
 
@@ -112,5 +112,5 @@ location / {
 
 ## 与本仓库的关系
 
-- **不会**把 Java 代码并入 `ruoyi-ai` 仓库（见 AGENTS.md 架构边界）
+- **不会**把 Java 代码并入 `easy-agent-gateway` 仓库（见 AGENTS.md 架构边界）
 - `deploy/coexist/` 仅提供**共存配置模板**，RuoYi 源码与 MySQL 数据在 `/opt/ruoyi-classic`

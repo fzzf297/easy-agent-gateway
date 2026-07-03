@@ -5,14 +5,14 @@ set -eu
 # No internet required. Installs Docker from bundle if missing.
 #
 # Usage (as root):
-#   sh deploy/install-from-archive.sh /path/to/ruoyi-ai-offline-bundle.tar.gz
-#   sh deploy/install-from-archive.sh /path/to/ruoyi-ai-offline-bundle.tar.gz /opt/ruoyi-ai
+#   sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar.gz
+#   sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar.gz /opt/easy-agent-gateway
 
 ARCHIVE="${1:-}"
-INSTALL_DIR="${2:-/opt/ruoyi-ai}"
+INSTALL_DIR="${2:-/opt/easy-agent-gateway}"
 
 if [ -z "$ARCHIVE" ] || [ ! -f "$ARCHIVE" ]; then
-    echo "Usage: sh deploy/install-from-archive.sh <ruoyi-ai-offline-bundle.tar.gz> [install_dir]" >&2
+    echo "Usage: sh deploy/install-from-archive.sh <easy-agent-gateway-offline-bundle.tar.gz> [install_dir]" >&2
     exit 1
 fi
 

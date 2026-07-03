@@ -1,4 +1,4 @@
-# application-druid.yml 片段 — 经典 RuoYi 连接本机 MySQL（与 ruoyi-ai 无关）
+# application-druid.yml 片段 — 经典 RuoYi 连接本机 MySQL（与 easy-agent-gateway 无关）
 #
 # 文件位置（克隆仓库后）：
 #   ruoyi-admin/src/main/resources/application-druid.yml
@@ -16,4 +16,4 @@
 #     port: 8080
 #     servlet:
 #       context-path: /
-#   # 不要占用 80，由 ruoyi-ai 的 nginx 统一反代
+#   # 不要占用 80，由 easy-agent-gateway 的 nginx 统一反代

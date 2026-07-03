@@ -13,6 +13,8 @@ from app.schemas.session import (
     MessageOut,
     SendMessageIn,
     SessionOut,
+    SessionScoreIn,
+    SessionScoreOut,
 )
 from app.services.conversation import stream_response
 from app.services.event_buffer import replay_then_stream, store_event
@@ -37,6 +39,17 @@ def _require_session(session_id: str) -> dict:
     return session
 
 
+def _to_score_out(row: dict) -> SessionScoreOut:
+    return SessionScoreOut(
+        sessionId=row["session_id"],
+        userLabel=row["user_label"],
+        score=row["score"],
+        comment=row["comment"],
+        createdAt=row["created_at"],
+        updatedAt=row["updated_at"],
+    )
+
+
 @router.post("/sessions", response_model=SessionOut, status_code=201)
 def create_session(payload: CreateSessionIn) -> SessionOut:
     session_id = str(uuid.uuid4())
@@ -57,6 +70,26 @@ def get_history(session_id: str) -> HistoryOut:
             MessageOut(role=row["role"], content=content, createdAt=row["created_at"])
         )
     return HistoryOut(sessionId=session_id, messages=messages)
+
+
+@router.put("/sessions/{session_id}/score", response_model=SessionScoreOut)
+def score_session(session_id: str, payload: SessionScoreIn) -> SessionScoreOut:
+    session = _require_session(session_id)
+    with get_connection() as conn:
+        row = session_repo.upsert_session_score(
+            conn,
+            session_id,
+            session["user_label"],
+            payload.score,
+            payload.comment,
+        )
+        session_repo.save_audit_event(
+            conn,
+            session_id,
+            "session_scored",
+            {"score": payload.score, "has_comment": bool(payload.comment)},
+        )
+    return _to_score_out(row)
 
 
 async def _buffered_stream(session_id: str, content: str):

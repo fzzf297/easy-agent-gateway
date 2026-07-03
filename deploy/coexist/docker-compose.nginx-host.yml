@@ -1,4 +1,4 @@
-# Overlay: let ruoyi-ai nginx reach classic RuoYi on host port 8080.
+# Overlay: let easy-agent-gateway nginx reach classic RuoYi on host port 8080.
 
 services:
   nginx:

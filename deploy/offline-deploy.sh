@@ -15,11 +15,11 @@ set -eu
 #   BUNDLE_ONLY=1 AGENT_LLM_API_KEY=sk-xxxx sh deploy/offline-deploy.sh
 #
 # On air-gapped target after copying archive:
-#   sh deploy/install-from-archive.sh /path/to/ruoyi-ai-offline-bundle.tar.gz
+#   sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar.gz
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/deploy"
-REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/ruoyi-ai}"
+REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/easy-agent-gateway}"
 BUNDLE_DIR="$DEPLOY_DIR/bundle"
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -55,11 +55,11 @@ rsync_cmd() {
 
 sh "$DEPLOY_DIR/prepare-offline-bundle.sh"
 ADMIN_PASSWORD_LINE="$(grep '^ADMIN_API_DEFAULT_ADMIN_PASSWORD=' "$ROOT_DIR/.env" || true)"
-BUNDLE_ARCHIVE="$DEPLOY_DIR/ruoyi-ai-offline-bundle.tar.gz"
+BUNDLE_ARCHIVE="$DEPLOY_DIR/easy-agent-gateway-offline-bundle.tar.gz"
 
 if [ "${BUNDLE_ONLY:-0}" = "1" ]; then
     echo "Copy $BUNDLE_ARCHIVE to target, then:"
-    echo "  sh deploy/install-from-archive.sh ruoyi-ai-offline-bundle.tar.gz"
+    echo "  sh deploy/install-from-archive.sh easy-agent-gateway-offline-bundle.tar.gz"
     exit 0
 fi
 
@@ -75,9 +75,9 @@ ssh_cmd "$REMOTE" "sh -s" <<EOF
 set -eu
 cd '$REMOTE_DIR'
 if [ -f deploy/install-from-archive.sh ]; then
-    sh deploy/install-from-archive.sh ruoyi-ai-offline-bundle.tar.gz '$REMOTE_DIR'
+    sh deploy/install-from-archive.sh easy-agent-gateway-offline-bundle.tar.gz '$REMOTE_DIR'
 else
-    tar -xzf ruoyi-ai-offline-bundle.tar.gz -C /tmp
+    tar -xzf easy-agent-gateway-offline-bundle.tar.gz -C /tmp
     cp -a /tmp/bundle/. '$REMOTE_DIR/'
     cd '$REMOTE_DIR' && sh deploy/install-on-target.sh
 fi

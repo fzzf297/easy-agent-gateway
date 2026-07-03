@@ -1,10 +1,10 @@
 # MySQL for classic RuoYi — deploy separately under /opt/ruoyi-classic/
-# NOT part of ruoyi-ai; no code or database shared with admin/agent SQLite.
+# NOT part of easy-agent-gateway; no code or database shared with admin/agent SQLite.
 #
 # Usage:
 #   mkdir -p /opt/ruoyi-classic && cd /opt/ruoyi-classic
-#   cp /opt/ruoyi-ai/deploy/coexist/docker-compose.mysql.yml .
-#   cp /opt/ruoyi-ai/deploy/coexist/mysql.env.example .env
+#   cp /opt/easy-agent-gateway/deploy/coexist/docker-compose.mysql.yml .
+#   cp /opt/easy-agent-gateway/deploy/coexist/mysql.env.example .env
 #   docker compose -f docker-compose.mysql.yml up -d
 
 services:

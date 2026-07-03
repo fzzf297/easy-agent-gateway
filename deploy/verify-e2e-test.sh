@@ -43,7 +43,7 @@ check curl -sf "http://${HOST}/agent/health" | grep -q '"status":"ok"'
 
 echo ""
 echo "=== 4. Agent execute_interface (in container) ==="
-docker exec ruoyi-ai-agent python3 <<'PY'
+docker exec easy-agent-gateway-agent python3 <<'PY'
 import asyncio
 import json
 import os

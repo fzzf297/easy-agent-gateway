@@ -10,7 +10,7 @@ set -eu
 #   AGENT_LLM_API_KEY=sk-xxxx sh deploy/prepare-offline-bundle.sh
 #
 # Output:
-#   deploy/ruoyi-ai-offline-bundle.tar.gz
+#   deploy/easy-agent-gateway-offline-bundle.tar.gz
 #
 # Environment:
 #   SKIP_BUILD=1          reuse existing deploy/*.tar
@@ -29,7 +29,7 @@ sh "$DEPLOY_DIR/prepare-env.sh"
 
 echo "==> [2/4] Build and save application images (build machine, needs internet)"
 if [ "${SKIP_BUILD:-0}" = "1" ]; then
-    for f in ruoyi-ai-admin.tar ruoyi-ai-agent.tar ruoyi-ai-nginx.tar; do
+    for f in easy-agent-gateway-admin.tar easy-agent-gateway-agent.tar easy-agent-gateway-nginx.tar; do
         if [ ! -f "$DEPLOY_DIR/$f" ]; then
             echo "Error: missing $DEPLOY_DIR/$f" >&2
             exit 1
@@ -55,7 +55,7 @@ mkdir -p "$BUNDLE_DIR/deploy"
 cp "$ROOT_DIR/docker-compose.prod.yml" "$BUNDLE_DIR/"
 cp "$ROOT_DIR/.env" "$BUNDLE_DIR/"
 
-for f in ruoyi-ai-admin.tar ruoyi-ai-agent.tar ruoyi-ai-nginx.tar \
+for f in easy-agent-gateway-admin.tar easy-agent-gateway-agent.tar easy-agent-gateway-nginx.tar \
     docker-static.tgz docker-compose-linux-x86_64; do
     cp "$DEPLOY_DIR/$f" "$BUNDLE_DIR/deploy/"
 done
@@ -65,14 +65,14 @@ for script in load-images.sh deploy.sh install-on-target.sh install-from-archive
     cp "$DEPLOY_DIR/$script" "$BUNDLE_DIR/deploy/"
 done
 
-BUNDLE_ARCHIVE="$DEPLOY_DIR/ruoyi-ai-offline-bundle.tar.gz"
+BUNDLE_ARCHIVE="$DEPLOY_DIR/easy-agent-gateway-offline-bundle.tar.gz"
 tar -czf "$BUNDLE_ARCHIVE" -C "$DEPLOY_DIR" bundle
 
 echo ""
 echo "Offline bundle ready: $BUNDLE_ARCHIVE ($(du -h "$BUNDLE_ARCHIVE" | cut -f1))"
 echo ""
 echo "Copy to air-gapped target, then run (as root):"
-echo "  sh deploy/install-from-archive.sh /path/to/ruoyi-ai-offline-bundle.tar.gz"
+echo "  sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar.gz"
 echo ""
 ADMIN_PASSWORD_LINE="$(grep '^ADMIN_API_DEFAULT_ADMIN_PASSWORD=' "$ROOT_DIR/.env" || true)"
 if [ -n "$ADMIN_PASSWORD_LINE" ]; then

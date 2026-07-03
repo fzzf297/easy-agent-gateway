@@ -17,7 +17,7 @@ import com.ruoyi.common.annotation.Anonymous;
 
 /**
  * Agent bridge: exchange client credentials for a Shiro session cookie header.
- * Used by ruoyi-ai Agent execute_interface (kind: auth).
+ * Used by easy-agent-gateway Agent execute_interface (kind: auth).
  */
 @RestController
 @RequestMapping("/api/agent-bridge")

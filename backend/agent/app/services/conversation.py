@@ -193,7 +193,12 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
                             if hasattr(msg, "content"):
                                 last_msg = msg
                         if last_msg:
-                            tool_calls_used.append(last_msg.content[:200])
+                            summary = last_msg.content[:200]
+                            tool_calls_used.append(summary)
+                            _save_audit(session_id, "tool_called", {
+                                "correlation_id": correlation_id,
+                                "summary": summary,
+                            })
                     yield _sse_event(
                         "tool_status",
                         {"node": node_name, "status": "done"},

@@ -6,20 +6,20 @@ set -eu
 #
 # Environment:
 #   RUOYI_ROOT          default /opt/ruoyi-classic
-#   RUOYI_AI_ROOT       default /opt/ruoyi-ai
-#   BRIDGE_CLIENT_ID    default ruoyi-ai-agent
+#   RUOYI_AI_ROOT       default /opt/easy-agent-gateway
+#   BRIDGE_CLIENT_ID    default easy-agent-gateway-agent
 #   BRIDGE_CLIENT_SECRET  generated if unset
 #   RUOYI_SERVICE_USER  default admin
 #   RUOYI_SERVICE_PASSWORD default admin123
 
 RUOYI_ROOT="${RUOYI_ROOT:-/opt/ruoyi-classic}"
-RUOYI_AI_ROOT="${RUOYI_AI_ROOT:-/opt/ruoyi-ai}"
+RUOYI_AI_ROOT="${RUOYI_AI_ROOT:-/opt/easy-agent-gateway}"
 RUOYI_APP="$RUOYI_ROOT/app"
 COEXIST_DIR="$RUOYI_AI_ROOT/deploy/coexist"
 BRIDGE_SRC="$COEXIST_DIR/ruoyi-agent-bridge/AgentBridgeController.java"
 BRIDGE_ENV="$RUOYI_ROOT/.bridge.env"
 
-BRIDGE_CLIENT_ID="${BRIDGE_CLIENT_ID:-ruoyi-ai-agent}"
+BRIDGE_CLIENT_ID="${BRIDGE_CLIENT_ID:-easy-agent-gateway-agent}"
 if [ -z "${BRIDGE_CLIENT_SECRET:-}" ]; then
     if [ -f "$BRIDGE_ENV" ]; then
         # shellcheck disable=SC1090
@@ -68,7 +68,7 @@ else
 fi
 
 echo "==> [3/5] Build RuoYi (may take several minutes)"
-docker stop ruoyi-ai-agent 2>/dev/null || true
+docker stop easy-agent-gateway-agent 2>/dev/null || true
 cd "$RUOYI_APP"
 mvn -q package -DskipTests -pl ruoyi-admin -am
 
@@ -101,7 +101,7 @@ for i in $(seq 1 60); do
     sleep 2
 done
 
-echo "==> [5/5] Sync secrets to ruoyi-ai .env"
+echo "==> [5/5] Sync secrets to easy-agent-gateway .env"
 SECRETS_JSON="$(BRIDGE_CLIENT_ID="$BRIDGE_CLIENT_ID" BRIDGE_CLIENT_SECRET="$BRIDGE_CLIENT_SECRET" python3 <<'PY'
 import json, os
 print(json.dumps({

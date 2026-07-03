@@ -16,7 +16,7 @@ if [ ! -f "$DEPLOY_DIR/docker-static.tgz" ] || [ ! -f "$DEPLOY_DIR/docker-compos
     sh "$DEPLOY_DIR/fetch-docker-static.sh"
 fi
 
-for image in ruoyi-ai/admin:latest ruoyi-ai/agent:latest ruoyi-ai/nginx:latest; do
+for image in easy-agent-gateway/admin:latest easy-agent-gateway/agent:latest easy-agent-gateway/nginx:latest; do
     if ! docker image inspect "$image" >/dev/null 2>&1; then
         echo "Error: missing image $image." >&2
         exit 1
@@ -29,8 +29,8 @@ for image in ruoyi-ai/admin:latest ruoyi-ai/agent:latest ruoyi-ai/nginx:latest; 
 done
 
 echo "Saving images..."
-docker save ruoyi-ai/admin:latest > "$DEPLOY_DIR/ruoyi-ai-admin.tar"
-docker save ruoyi-ai/agent:latest > "$DEPLOY_DIR/ruoyi-ai-agent.tar"
-docker save ruoyi-ai/nginx:latest > "$DEPLOY_DIR/ruoyi-ai-nginx.tar"
+docker save easy-agent-gateway/admin:latest > "$DEPLOY_DIR/easy-agent-gateway-admin.tar"
+docker save easy-agent-gateway/agent:latest > "$DEPLOY_DIR/easy-agent-gateway-agent.tar"
+docker save easy-agent-gateway/nginx:latest > "$DEPLOY_DIR/easy-agent-gateway-nginx.tar"
 
 SKIP_BUILD=1 sh "$DEPLOY_DIR/prepare-offline-bundle.sh"

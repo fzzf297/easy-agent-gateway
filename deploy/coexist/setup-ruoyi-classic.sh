@@ -2,13 +2,13 @@
 set -eu
 
 # One-time setup: classic RuoYi (springboot2) + MySQL on /opt/ruoyi-classic
-# Coexists with ruoyi-ai — no shared DB or ports.
+# Coexists with easy-agent-gateway — no shared DB or ports.
 # Requires: root, internet (clone + mvn + dnf), ~1.5GB RAM + swap recommended.
 #
 # Usage (on server):
-#   sh /opt/ruoyi-ai/deploy/coexist/setup-ruoyi-classic.sh
+#   sh /opt/easy-agent-gateway/deploy/coexist/setup-ruoyi-classic.sh
 
-RUOYI_AI_ROOT="${RUOYI_AI_ROOT:-/opt/ruoyi-ai}"
+RUOYI_AI_ROOT="${RUOYI_AI_ROOT:-/opt/easy-agent-gateway}"
 RUOYI_ROOT="${RUOYI_ROOT:-/opt/ruoyi-classic}"
 COEXIST_DIR="$RUOYI_AI_ROOT/deploy/coexist"
 BRANCH="${RUOYI_BRANCH:-springboot2}"
@@ -25,7 +25,7 @@ fi
 java -version
 mvn -version
 
-echo "==> [2/8] ruoyi-ai debug mode (stop agent, free memory)"
+echo "==> [2/8] easy-agent-gateway debug mode (stop agent, free memory)"
 if [ -f "$RUOYI_AI_ROOT/deploy/debug-stack.sh" ]; then
     sh "$RUOYI_AI_ROOT/deploy/debug-stack.sh" || true
 fi
@@ -114,7 +114,7 @@ echo "=========================================="
 echo "Classic RuoYi is up."
 echo "  RuoYi UI:  http://$(hostname -I 2>/dev/null | awk '{print $1}')/"
 echo "  Login:     admin / admin123"
-echo "  ruoyi-ai:  http://$(hostname -I 2>/dev/null | awk '{print $1}')/docs"
+echo "  easy-agent-gateway:  http://$(hostname -I 2>/dev/null | awk '{print $1}')/docs"
 echo "  MySQL creds: $RUOYI_ROOT/.env"
 echo "  Log: /var/log/ruoyi-classic.log"
 echo "=========================================="

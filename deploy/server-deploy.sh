@@ -12,13 +12,13 @@ set -eu
 #   DEPLOY_HOST          (required)
 #   DEPLOY_USER          (default: root)
 #   DEPLOY_PASSWORD      or DEPLOY_SSH_KEY
-#   DEPLOY_REMOTE_DIR    (default: /opt/ruoyi-ai)
+#   DEPLOY_REMOTE_DIR    (default: /opt/easy-agent-gateway)
 #   AGENT_LLM_*          passed to prepare-env.sh
 #   ADMIN_API_DEFAULT_ADMIN_PASSWORD
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/deploy"
-REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/ruoyi-ai}"
+REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/easy-agent-gateway}"
 
 if [ -z "${DEPLOY_HOST:-}" ]; then
     echo "Error: DEPLOY_HOST is required." >&2
@@ -61,7 +61,7 @@ rsync_cmd \
     --exclude '.git' \
     --exclude 'deploy/*.tar' \
     --exclude 'deploy/bundle' \
-    --exclude 'deploy/ruoyi-ai-offline-bundle.tar.gz' \
+    --exclude 'deploy/easy-agent-gateway-offline-bundle.tar.gz' \
     --exclude 'backend/*/data' \
     --exclude 'backend/*/.venv' \
     --exclude '**/__pycache__' \

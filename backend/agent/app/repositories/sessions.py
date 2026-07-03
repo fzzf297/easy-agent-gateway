@@ -26,6 +26,24 @@ def get_session(conn: sqlite3.Connection, session_id: str) -> Optional[dict]:
     return dict(row)
 
 
+def list_sessions(conn: sqlite3.Connection, page: int, page_size: int) -> list[dict]:
+    rows = conn.execute(
+        """
+        SELECT
+            s.*,
+            sc.score AS score,
+            sc.comment AS score_comment,
+            sc.updated_at AS score_updated_at
+        FROM agent_sessions s
+        LEFT JOIN agent_session_scores sc ON sc.session_id = s.session_id
+        ORDER BY s.updated_at DESC, s.id DESC
+        LIMIT ? OFFSET ?
+        """,
+        (page_size, (page - 1) * page_size),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
 def list_messages(conn: sqlite3.Connection, session_id: str) -> list[dict]:
     rows = conn.execute(
         """
@@ -70,6 +88,38 @@ def touch_session(conn: sqlite3.Connection, session_id: str) -> None:
         "UPDATE agent_sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ?",
         (session_id,),
     )
+
+
+def upsert_session_score(
+    conn: sqlite3.Connection,
+    session_id: str,
+    user_label: str,
+    score: int,
+    comment: str,
+) -> dict:
+    conn.execute(
+        """
+        INSERT INTO agent_session_scores(session_id, user_label, score, comment)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(session_id) DO UPDATE SET
+            user_label = excluded.user_label,
+            score = excluded.score,
+            comment = excluded.comment,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (session_id, user_label, score, comment),
+    )
+    return get_session_score(conn, session_id)
+
+
+def get_session_score(conn: sqlite3.Connection, session_id: str) -> Optional[dict]:
+    row = conn.execute(
+        "SELECT * FROM agent_session_scores WHERE session_id = ?",
+        (session_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(row)
 
 
 def save_audit_event(

@@ -5,9 +5,9 @@ set -eu
 # Run on a machine with internet access and Docker installed.
 #
 # Output:
-#   deploy/ruoyi-ai-admin.tar
-#   deploy/ruoyi-ai-agent.tar
-#   deploy/ruoyi-ai-nginx.tar
+#   deploy/easy-agent-gateway-admin.tar
+#   deploy/easy-agent-gateway-agent.tar
+#   deploy/easy-agent-gateway-nginx.tar
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/deploy"
@@ -29,14 +29,14 @@ docker compose -f docker-compose.yml build
 
 echo "Pulling nginx base image (tagged for offline load)..."
 docker pull --platform "$BUILD_PLATFORM" "$NGINX_IMAGE"
-docker tag "$NGINX_IMAGE" ruoyi-ai/nginx:latest
+docker tag "$NGINX_IMAGE" easy-agent-gateway/nginx:latest
 
 echo "Saving images..."
-docker save ruoyi-ai/admin:latest > "$DEPLOY_DIR/ruoyi-ai-admin.tar"
-docker save ruoyi-ai/agent:latest > "$DEPLOY_DIR/ruoyi-ai-agent.tar"
-docker save ruoyi-ai/nginx:latest > "$DEPLOY_DIR/ruoyi-ai-nginx.tar"
+docker save easy-agent-gateway/admin:latest > "$DEPLOY_DIR/easy-agent-gateway-admin.tar"
+docker save easy-agent-gateway/agent:latest > "$DEPLOY_DIR/easy-agent-gateway-agent.tar"
+docker save easy-agent-gateway/nginx:latest > "$DEPLOY_DIR/easy-agent-gateway-nginx.tar"
 
-for image in ruoyi-ai/admin:latest ruoyi-ai/agent:latest ruoyi-ai/nginx:latest; do
+for image in easy-agent-gateway/admin:latest easy-agent-gateway/agent:latest easy-agent-gateway/nginx:latest; do
     arch="$(docker image inspect "$image" --format '{{.Architecture}}')"
     if [ "$arch" != "amd64" ]; then
         echo "Error: $image is $arch, expected amd64." >&2

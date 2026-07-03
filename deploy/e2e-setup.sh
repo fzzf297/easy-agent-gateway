@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-# Full E2E setup on the server: build ruoyi-ai, install RuoYi bridge, verify.
-# Run on server: cd /opt/ruoyi-ai && sh deploy/e2e-setup.sh
+# Full E2E setup on the server: build easy-agent-gateway, install RuoYi bridge, verify.
+# Run on server: cd /opt/easy-agent-gateway && sh deploy/e2e-setup.sh
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -14,12 +14,12 @@ if [ -f "$ROOT_DIR/.env" ]; then
     cp "$ROOT_DIR/.env" "$ENV_BACKUP"
 fi
 
-echo "==> [1/6] Build ruoyi-ai images"
+echo "==> [1/6] Build easy-agent-gateway images"
 docker compose -f docker-compose.yml build admin agent
 
 NGINX_IMAGE="${NGINX_BASE_IMAGE:-nginx:1.27-alpine}"
 docker pull "$NGINX_IMAGE" 2>/dev/null || true
-docker tag "$NGINX_IMAGE" ruoyi-ai/nginx:latest 2>/dev/null || true
+docker tag "$NGINX_IMAGE" easy-agent-gateway/nginx:latest 2>/dev/null || true
 
 sh "$ROOT_DIR/deploy/fix-volume-perms.sh" 2>/dev/null || true
 
@@ -44,7 +44,7 @@ if grep -q '^AGENT_LLM_API_KEY=change-me' "$ROOT_DIR/.env" 2>/dev/null; then
     echo "WARN: AGENT_LLM_API_KEY is still change-me — set a real key for chat tests."
 fi
 
-echo "==> [4/6] Start ruoyi-ai stack"
+echo "==> [4/6] Start easy-agent-gateway stack"
 docker compose -f docker-compose.prod.yml -f "$COEXIST/docker-compose.nginx-host.yml" up -d --force-recreate admin agent nginx
 sleep 12
 

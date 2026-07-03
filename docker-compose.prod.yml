@@ -1,4 +1,4 @@
-version: "3.8"
+name: easy-agent-gateway
 
 # Production / offline deployment compose file.
 # Uses pre-built images; no build context or registry pull on the target machine.
@@ -11,8 +11,8 @@ version: "3.8"
 
 services:
   admin:
-    image: ruoyi-ai/admin:latest
-    container_name: ruoyi-ai-admin
+    image: easy-agent-gateway/admin:latest
+    container_name: easy-agent-gateway-admin
     expose:
       - "8000"
     environment:
@@ -42,8 +42,8 @@ services:
         max-file: "3"
 
   agent:
-    image: ruoyi-ai/agent:latest
-    container_name: ruoyi-ai-agent
+    image: easy-agent-gateway/agent:latest
+    container_name: easy-agent-gateway-agent
     expose:
       - "8001"
     environment:
@@ -85,8 +85,8 @@ services:
         max-file: "3"
 
   nginx:
-    image: ruoyi-ai/nginx:latest
-    container_name: ruoyi-ai-nginx
+    image: easy-agent-gateway/nginx:latest
+    container_name: easy-agent-gateway-nginx
     ports:
       - "80:80"
     volumes:

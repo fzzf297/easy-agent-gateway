@@ -91,6 +91,12 @@ SQLite 默认数据文件位于 `backend/agent/data/agent.db`，该目录已忽�
 - `AGENT_THIRD_PARTY_ALLOWED_HOSTS` 为空时，拒绝 `localhost`、私网/链路本地 IP、解析到这些地址的普通域名与云 metadata 主机；`host.docker.internal` 等仅 allowlist 显式允许的主机名也需配置后才可访问；`127.0.0.0/8` 等即使用户写入 allowlist 也会被硬拦截。
 - Docker compose 会把 `AGENT_PROJECT_SECRETS`、`AGENT_THIRD_PARTY_ALLOWED_HOSTS`、`AGENT_THIRD_PARTY_MAX_RESPONSE_BYTES` 传给 agent 容器；如使用 `ruoyi-classic` 默认 `baseUrl=http://host.docker.internal:8080`，需设置 `AGENT_THIRD_PARTY_ALLOWED_HOSTS=host.docker.internal`。
 
+## 产品闭环接口
+
+- `POST /api/agent/interfaces/test`：试运行单个已配置只读接口，返回 `ok/data/error/durationMs/authUsed/preview`，写接口会返回 `INTERFACE_WRITE_NOT_ALLOWED`。
+- `PUT /api/agent/sessions/{session_id}/score`：提交或覆盖整场会话评分，分数范围 `1..5`，备注可选。
+- `GET /api/agent/audit`：查询审计事件；支持 `sessionId`、`includeMessages`、`includeScore`、`includeSessions` 查询参数，便于管理端查看会话内容、评分和工具调用摘要。
+
 ### YAML 示例
 
 静态 API Key（headers）：

@@ -1,12 +1,12 @@
-version: "3.8"
+name: easy-agent-gateway
 
 services:
   admin:
     platform: linux/amd64
     build:
       context: ./backend/admin
-    image: ruoyi-ai/admin:latest
-    container_name: ruoyi-ai-admin
+    image: easy-agent-gateway/admin:latest
+    container_name: easy-agent-gateway-admin
     ports:
       - "127.0.0.1:8000:8000"
     environment:
@@ -25,8 +25,8 @@ services:
     platform: linux/amd64
     build:
       context: ./backend/agent
-    image: ruoyi-ai/agent:latest
-    container_name: ruoyi-ai-agent
+    image: easy-agent-gateway/agent:latest
+    container_name: easy-agent-gateway-agent
     ports:
       - "127.0.0.1:8001:8001"
     environment:

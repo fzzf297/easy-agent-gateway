@@ -7,7 +7,7 @@ set -eu
 #   AGENT_LLM_API_KEY=sk-xxxx sh deploy/seed-agent-admin.sh
 #
 # On remote server:
-#   cd /opt/ruoyi-ai && AGENT_LLM_API_KEY=sk-xxxx sh deploy/seed-agent-admin.sh
+#   cd /opt/easy-agent-gateway && AGENT_LLM_API_KEY=sk-xxxx sh deploy/seed-agent-admin.sh
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -49,8 +49,8 @@ docker compose $COMPOSE_FILES up -d agent 2>/dev/null \
 sleep 5
 echo ""
 echo "Verify public config:"
-curl -s "http://127.0.0.1/api/app/projects/ruoyi-ai-agent/pages" | head -c 400 || true
+curl -s "http://127.0.0.1/api/app/projects/easy-agent-gateway-agent/pages" | head -c 400 || true
 echo ""
 echo ""
 curl -s -o /dev/null -w "agent health: %{http_code}\n" http://127.0.0.1/agent/health || true
-echo "Done. Admin API: http://<host>/docs  project code: ruoyi-ai-agent"
+echo "Done. Admin API: http://<host>/docs  project code: easy-agent-gateway-agent"

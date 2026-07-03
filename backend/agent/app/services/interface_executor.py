@@ -37,7 +37,8 @@ async def execute_interface(
     secrets = get_project_secrets(project_code, settings.project_secrets)
     headers: dict[str, str] = {}
     auth_cache_key: Optional[str] = None
-    if config.get("auth", {}).get("useProjectAuth") is True:
+    auth_used = config.get("auth", {}).get("useProjectAuth") is True
+    if auth_used:
         headers, auth_cache_key = await _get_auth_headers(
             project_code, base_url, secrets, config
         )
@@ -55,6 +56,7 @@ async def execute_interface(
     return {
         "projectCode": project_code,
         "interfaceCode": interface_code,
+        "authUsed": auth_used,
         "data": extracted,
     }
 

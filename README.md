@@ -1,8 +1,44 @@
-# RuoYi AI Workspace
+# Easy Agent Gateway
 
-本仓库按技术形态划分为后端与前端。可运行服务包括
-`backend/admin`（FastAPI + SQLite 管理后台后端）和
+为传统 Web 系统提供低侵入、可配置、可审计的 AI Agent 接入层，支持只读查询、会话审计和内网离线部署。
+
+当前可运行服务包括 `backend/admin`（FastAPI + SQLite 管理后台后端）和
 `backend/agent`（LangGraph + FastAPI Agent 服务，只读调用 admin）。
+
+## 项目解决什么问题
+
+- 在不改造传统系统主体架构的前提下，接入可控的 AI Agent。
+- 用 admin 管理项目、页面和接口配置，用 agent 执行会话编排与只读查询。
+- 支持审计、会话评分、接口试运行和离线内网部署，便于在受限网络中落地。
+
+## 三分钟启动
+
+```bash
+cd backend/admin
+python3 -m pip install -e ".[dev]"
+python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+```bash
+cd backend/agent
+python3 -m pip install -e ".[dev]"
+AGENT_ADMIN_BASE_URL=http://localhost:8000 \
+python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+```
+
+- admin Swagger UI：`http://localhost:8000/docs`
+- agent Swagger UI：`http://localhost:8001/docs`
+
+## 架构图
+
+```mermaid
+flowchart LR
+  User[用户 / 前端] --> Agent[backend/agent<br/>LangGraph + FastAPI]
+  Agent --> AdminApp[backend/admin<br/>/api/app/* 只读接口]
+  AdminApp --> AdminDB[(admin SQLite)]
+  Agent --> AgentDB[(agent SQLite)]
+  Agent --> ThirdParty[传统 Web / 三方业务接口]
+```
 
 ## 目录结构
 
@@ -16,6 +52,14 @@
 ├─ docs/                    # 产品与历史文档
 └─ scripts/                 # 根命令包装
 ```
+
+## 运行截图
+
+当前仓库未提交运行截图。启动后可通过 Swagger UI 查看 admin 与 agent 的接口页面。
+
+## 许可证
+
+本项目使用 [MIT License](LICENSE)。
 
 ## 环境要求
 
@@ -129,6 +173,9 @@ AGENT_THIRD_PARTY_MAX_RESPONSE_BYTES
 - `POST /api/agent/sessions`：创建会话。
 - `GET /api/agent/sessions/{id}/history`：查询会话历史。
 - `POST /api/agent/sessions/{id}/messages`：发送消息（SSE 流式响应）。
+- `PUT /api/agent/sessions/{id}/score`：提交或覆盖会话评分。
+- `POST /api/agent/interfaces/test`：试运行单个已配置只读业务接口。
+- `GET /api/agent/audit`：查询审计事件，可按会话附带消息和评分。
 
 agent 自身接口不鉴权，通过 HTTP 调用 admin 的 `/api/app/*` 获取项目与接口配置；对标记为 `kind: api` 且 `readOnly: true` 的接口，Agent 会按项目 `baseUrl` 调用三方只读业务 API（认证通过三方 bridge 与 `AGENT_PROJECT_SECRETS` 注入）。
 
@@ -176,7 +223,7 @@ AGENT_LLM_API_KEY=sk-xxxx python3 scripts/load_test.py
 
 ```text
 [可联网 x86_64 构建机]                    [内网目标机，全程无网]
-  sh deploy/prepare-offline-bundle.sh  →  拷贝 ruoyi-ai-offline-bundle.tar.gz
+  sh deploy/prepare-offline-bundle.sh  →  拷贝 easy-agent-gateway-offline-bundle.tar.gz
   产出 .tar.gz                                sh deploy/install-from-archive.sh ...
 ```
 
@@ -188,17 +235,17 @@ ADMIN_API_DEFAULT_ADMIN_PASSWORD='your-admin-password' \
 sh deploy/prepare-offline-bundle.sh
 ```
 
-产出：`deploy/ruoyi-ai-offline-bundle.tar.gz`（含 Docker 引擎 + 全部镜像）
+产出：`deploy/easy-agent-gateway-offline-bundle.tar.gz`（含 Docker 引擎 + 全部镜像）
 
 构建机也可以是另一台 x86 服务器（临时联网），**不是你的内网目标机**。
 
 ### 2. 目标机：首次安装（零网络）
 
-将 `ruoyi-ai-offline-bundle.tar.gz` 拷到目标机后：
+将 `easy-agent-gateway-offline-bundle.tar.gz` 拷到目标机后：
 
 ```bash
 # 将仓库 deploy/ 目录一并拷入，或直接从包内解压后执行：
-sh deploy/install-from-archive.sh /path/to/ruoyi-ai-offline-bundle.tar.gz /opt/ruoyi-ai
+sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar.gz /opt/easy-agent-gateway
 ```
 
 等价于：`解压 → 离线装 Docker → docker load → 修复数据卷权限 → compose up`
@@ -222,8 +269,8 @@ BUNDLE_ONLY=1 AGENT_LLM_API_KEY=sk-xxxx sh deploy/offline-deploy.sh
 ### 4. 目标机后续升级（仍零网络）
 
 ```bash
-cd /opt/ruoyi-ai
-sh deploy/install-from-archive.sh /path/to/ruoyi-ai-offline-bundle.tar.gz
+cd /opt/easy-agent-gateway
+sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar.gz
 ```
 
 ### 部署后架构
