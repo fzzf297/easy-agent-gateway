@@ -24,6 +24,7 @@ async def execute_interface(
     project_code: str,
     interface_code: str,
     params: Optional[dict[str, Any]] = None,
+    allow_write: bool = False,
 ) -> dict[str, Any]:
     safe_params = params or {}
     project = await admin_client.get_project(project_code)
@@ -31,7 +32,7 @@ async def execute_interface(
 
     app_interface = await admin_client.get_interface(project_code, interface_code)
     config = await _load_interface_config(project_code, interface_code, app_interface)
-    _validate_executable_config(config)
+    _validate_executable_config(config, allow_write=allow_write)
 
     secrets = get_project_secrets(project_code, settings.project_secrets)
     headers: dict[str, str] = {}
@@ -104,12 +105,12 @@ def _validate_base_url(base_url: str) -> str:
     return value.rstrip("/")
 
 
-def _validate_executable_config(config: dict[str, Any]) -> None:
+def _validate_executable_config(config: dict[str, Any], allow_write: bool = False) -> None:
     if config.get("kind") != "api":
         raise AppError("INTERFACE_KIND_NOT_API", status_code=400)
     if not isinstance(config.get("readOnly"), bool):
         raise AppError("INTERFACE_READ_ONLY_REQUIRED", status_code=400)
-    if config.get("readOnly") is not True:
+    if config.get("readOnly") is not True and not allow_write:
         raise AppError("INTERFACE_WRITE_NOT_ALLOWED", status_code=400)
     request = config.get("request")
     if not isinstance(request, dict):

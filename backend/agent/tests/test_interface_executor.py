@@ -251,6 +251,39 @@ async def test_execute_interface_rejects_write_interface() -> None:
         assert exc_info.value.status_code == 400
 
 
+@pytest.mark.anyio
+async def test_execute_interface_allows_write_when_explicitly_enabled() -> None:
+    write_config = {
+        "version": 1,
+        "kind": "api",
+        "readOnly": False,
+        "request": {
+            "method": "POST",
+            "path": "/system/user/add",
+            "contentType": "application/x-www-form-urlencoded",
+            "body": {"userName": "{userName}", "loginName": "{loginName}"},
+        },
+        "response": {"dataPath": "."},
+    }
+    fake_admin = FakeAdminClient(
+        target=_iface("create_user", "POST", "/system/user/add", write_config),
+        interfaces=[],
+    )
+    api_response = httpx.Response(200, json={"code": 0, "msg": "success"})
+    http_patch, http_client = _patch_http([api_response])
+    with patch.object(interface_executor, "admin_client", new=fake_admin), http_patch:
+        result = await execute_interface(
+            "demo",
+            "create_user",
+            {"userName": "张三", "loginName": "zhangsan"},
+            allow_write=True,
+        )
+
+    assert result["data"] == {"code": 0, "msg": "success"}
+    api_kwargs = http_client.stream_calls[0][2]
+    assert api_kwargs["data"] == {"userName": "张三", "loginName": "zhangsan"}
+
+
 @pytest.mark.parametrize(
     ("parsed_config", "error_message"),
     [

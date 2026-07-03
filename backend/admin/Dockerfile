@@ -3,7 +3,7 @@ FROM python:3.9-slim-bookworm AS builder
 WORKDIR /app
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --no-cache-dir .
+RUN --mount=type=cache,target=/root/.cache/pip pip install .
 
 FROM python:3.9-slim-bookworm
 

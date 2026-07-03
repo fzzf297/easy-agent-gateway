@@ -54,8 +54,8 @@ def _extract_auth_metadata(config: dict[str, Any]) -> tuple[bool, Optional[str]]
     return auth_required, None
 
 
-def _is_listable_executable_api(config: dict[str, Any], item_method: str) -> bool:
-    if config.get("kind") != "api" or config.get("readOnly") is not True:
+def _is_listable_api(config: dict[str, Any], item_method: str, read_only: bool) -> bool:
+    if config.get("kind") != "api" or config.get("readOnly") is not read_only:
         return False
     method = item_method
     request = config.get("request")
@@ -64,6 +64,22 @@ def _is_listable_executable_api(config: dict[str, Any], item_method: str) -> boo
         if isinstance(config_method, str):
             method = config_method
     return method in interface_executor.ALLOWED_EXECUTE_METHODS
+
+
+def _interface_summary(item: Any, read_only: bool) -> dict[str, Any]:
+    config = item.parsedConfig or {}
+    auth_required, auth_interface_code = _extract_auth_metadata(config)
+    return {
+        "code": item.code,
+        "name": item.name,
+        "method": item.method,
+        "path": item.path,
+        "description": item.description,
+        "readOnly": read_only,
+        "params": _extract_interface_params(config),
+        "authRequired": auth_required,
+        "authInterfaceCode": auth_interface_code,
+    }
 
 
 @tool
@@ -334,21 +350,8 @@ async def list_executable_interfaces(
         )
         for item in result.items:
             config = item.parsedConfig or {}
-            if _is_listable_executable_api(config, item.method):
-                auth_required, auth_interface_code = _extract_auth_metadata(config)
-                items.append(
-                    {
-                        "code": item.code,
-                        "name": item.name,
-                        "method": item.method,
-                        "path": item.path,
-                        "description": item.description,
-                        "readOnly": True,
-                        "params": _extract_interface_params(config),
-                        "authRequired": auth_required,
-                        "authInterfaceCode": auth_interface_code,
-                    }
-                )
+            if _is_listable_api(config, item.method, read_only=True):
+                items.append(_interface_summary(item, read_only=True))
         if fetch_page * fetch_page_size >= result.total:
             break
         fetch_page += 1
@@ -356,6 +359,47 @@ async def list_executable_interfaces(
     page_items = items[start : start + page_size]
     logger.info(
         "tool list_executable_interfaces: project=%s total=%s",
+        project_code,
+        len(items),
+    )
+    return json.dumps(
+        {
+            "projectCode": project_code,
+            "items": page_items,
+            "total": len(items),
+            "page": page,
+            "pageSize": page_size,
+        },
+        ensure_ascii=False,
+    )
+
+
+@tool
+async def list_write_interfaces(
+    project_code: str, page: int = 1, page_size: int = 20
+) -> str:
+    """List configured write business APIs for a project.
+    Only includes kind=api, readOnly=false, and request methods GET or POST.
+    Use this when the user wants to create or modify business data.
+    """
+    items = []
+    fetch_page = 1
+    fetch_page_size = 100
+    while True:
+        result = await admin_client.list_interfaces(
+            project_code, page=fetch_page, page_size=fetch_page_size
+        )
+        for item in result.items:
+            config = item.parsedConfig or {}
+            if _is_listable_api(config, item.method, read_only=False):
+                items.append(_interface_summary(item, read_only=False))
+        if fetch_page * fetch_page_size >= result.total:
+            break
+        fetch_page += 1
+    start = max(page - 1, 0) * page_size
+    page_items = items[start : start + page_size]
+    logger.info(
+        "tool list_write_interfaces: project=%s total=%s",
         project_code,
         len(items),
     )
@@ -387,6 +431,38 @@ async def execute_interface(
     )
     logger.info(
         "tool execute_interface: project=%s interface=%s",
+        project_code,
+        interface_code,
+    )
+    return json.dumps(result, ensure_ascii=False)
+
+
+@tool
+async def execute_write_interface(
+    project_code: str,
+    interface_code: str,
+    params: Optional[dict] = None,
+    confirmation: str = "",
+) -> str:
+    """Execute a configured write business API after explicit user confirmation.
+    Call only after showing the write summary and receiving exactly: 确认新增.
+    """
+    if confirmation != "确认新增":
+        return json.dumps(
+            {
+                "error": "WRITE_CONFIRMATION_REQUIRED",
+                "message": "写操作需要用户明确回复：确认新增",
+            },
+            ensure_ascii=False,
+        )
+    result = await interface_executor.execute_interface(
+        project_code=project_code,
+        interface_code=interface_code,
+        params=params or {},
+        allow_write=True,
+    )
+    logger.info(
+        "tool execute_write_interface: project=%s interface=%s",
         project_code,
         interface_code,
     )

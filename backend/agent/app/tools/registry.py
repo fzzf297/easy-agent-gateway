@@ -1,5 +1,6 @@
 from app.tools.read_admin import (
     execute_interface,
+    execute_write_interface,
     get_interface,
     get_interface_config,
     get_page,
@@ -10,6 +11,7 @@ from app.tools.read_admin import (
     list_page_versions,
     list_pages,
     list_projects,
+    list_write_interfaces,
 )
 
 _tools = [
@@ -17,6 +19,7 @@ _tools = [
     list_pages,
     list_interfaces,
     list_executable_interfaces,
+    list_write_interfaces,
     get_project,
     get_page,
     get_interface,
@@ -24,6 +27,7 @@ _tools = [
     list_page_versions,
     list_interface_versions,
     execute_interface,
+    execute_write_interface,
 ]
 
 

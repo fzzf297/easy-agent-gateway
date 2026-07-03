@@ -179,6 +179,19 @@ def test_get_public_project() -> None:
         assert missing.status_code == 404
 
 
+def test_seeded_ruoyi_classic_dept_list_interface() -> None:
+    with TestClient(app) as client:
+        res = client.get("/api/app/projects/ruoyi-classic/interfaces/dept_list")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["code"] == "dept_list"
+        assert body["method"] == "POST"
+        assert body["path"] == "/system/dept/list"
+        assert body["parsedConfig"]["readOnly"] is True
+        assert body["parsedConfig"]["request"]["method"] == "POST"
+        assert body["parsedConfig"]["response"]["dataPath"] == "."
+
+
 def test_get_public_page() -> None:
     with TestClient(app) as client:
         headers = auth_headers(client)

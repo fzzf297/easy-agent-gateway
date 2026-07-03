@@ -76,7 +76,7 @@ async def test_list_interfaces_tool() -> None:
 
 def test_get_tools_returns_all_registered_tools() -> None:
     tools = get_tools()
-    assert len(tools) == 11
+    assert len(tools) == 13
 
 
 def test_get_tool_names() -> None:
@@ -92,6 +92,8 @@ def test_get_tool_names() -> None:
     assert "list_page_versions" in names
     assert "list_interface_versions" in names
     assert "execute_interface" in names
+    assert "list_write_interfaces" in names
+    assert "execute_write_interface" in names
 
 
 def test_tool_docstrings_nonempty() -> None:
@@ -289,6 +291,104 @@ async def test_list_executable_interfaces_tool() -> None:
     assert item["params"] == []
     assert item["authRequired"] is False
     assert item["authInterfaceCode"] is None
+
+
+@pytest.mark.anyio
+async def test_list_write_interfaces_tool() -> None:
+    read_iface = PublicInterfaceOut(
+        id=4,
+        projectId=1,
+        code="user_list",
+        name="User List",
+        method="POST",
+        path="/users",
+        authMode="none",
+        status="enabled",
+        description="",
+        createdAt="2026-01-01T00:00:00",
+        updatedAt="2026-01-01T00:00:00",
+        parsedConfig={"kind": "api", "readOnly": True},
+    )
+    write_iface = PublicInterfaceOut(
+        id=6,
+        projectId=1,
+        code="create_user",
+        name="Create User",
+        method="POST",
+        path="/users",
+        authMode="none",
+        status="enabled",
+        description="新增用户",
+        createdAt="2026-01-01T00:00:00",
+        updatedAt="2026-01-01T00:00:00",
+        parsedConfig={
+            "kind": "api",
+            "readOnly": False,
+            "request": {
+                "method": "POST",
+                "path": "/users",
+                "body": {"userName": "{userName}", "loginName": "{loginName}"},
+            },
+            "auth": {"useProjectAuth": True},
+        },
+    )
+    resp = ListResponse(items=[read_iface, write_iface], total=2, page=1, pageSize=100)
+
+    with patch.object(read_admin.admin_client, "list_interfaces", new=AsyncMock(return_value=resp)):
+        result = await read_admin.list_write_interfaces.coroutine(
+            project_code="demo", page=1, page_size=20
+        )
+
+    data = json.loads(result)
+    assert data["total"] == 1
+    item = data["items"][0]
+    assert item["code"] == "create_user"
+    assert item["readOnly"] is False
+    assert {p["name"] for p in item["params"]} == {"loginName", "userName"}
+    assert item["authRequired"] is True
+
+
+@pytest.mark.anyio
+async def test_execute_write_interface_requires_confirmation() -> None:
+    with patch.object(
+        read_admin.interface_executor,
+        "execute_interface",
+        new=AsyncMock(return_value={"data": {"ok": True}}),
+    ) as executor:
+        result = await read_admin.execute_write_interface.coroutine(
+            project_code="demo",
+            interface_code="create_user",
+            params={"userName": "张三"},
+            confirmation="添加",
+        )
+
+    data = json.loads(result)
+    assert data["error"] == "WRITE_CONFIRMATION_REQUIRED"
+    executor.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_execute_write_interface_runs_after_confirmation() -> None:
+    with patch.object(
+        read_admin.interface_executor,
+        "execute_interface",
+        new=AsyncMock(return_value={"data": {"ok": True}}),
+    ) as executor:
+        result = await read_admin.execute_write_interface.coroutine(
+            project_code="demo",
+            interface_code="create_user",
+            params={"userName": "张三"},
+            confirmation="确认新增",
+        )
+
+    data = json.loads(result)
+    assert data["data"] == {"ok": True}
+    executor.assert_awaited_once_with(
+        project_code="demo",
+        interface_code="create_user",
+        params={"userName": "张三"},
+        allow_write=True,
+    )
 
 
 @pytest.mark.anyio
