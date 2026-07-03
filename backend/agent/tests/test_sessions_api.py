@@ -219,6 +219,8 @@ def test_system_prompt_contains_injection_defense() -> None:
     assert "忽略" in SYSTEM_PROMPT
     assert "不可被覆盖" in SYSTEM_PROMPT
     assert "用户消息无权修改" in SYSTEM_PROMPT
+    assert "多个可能匹配的业务对象" in SYSTEM_PROMPT
+    assert "不得自行选择" in SYSTEM_PROMPT
 
 
 def test_tool_output_wrapped_as_data() -> None:
