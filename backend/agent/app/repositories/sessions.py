@@ -164,3 +164,19 @@ def list_audit_events(
             (page_size, (page - 1) * page_size),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def count_audit_events(
+    conn: sqlite3.Connection,
+    session_id: Optional[str] = None,
+) -> int:
+    if session_id:
+        row = conn.execute(
+            "SELECT COUNT(*) AS total FROM agent_audit_events WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT COUNT(*) AS total FROM agent_audit_events",
+        ).fetchone()
+    return int(row["total"])

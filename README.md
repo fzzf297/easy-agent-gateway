@@ -2,8 +2,10 @@
 
 为传统 Web 系统提供低侵入、可配置、可审计的 AI Agent 接入层，支持只读查询、会话审计和内网离线部署。
 
-当前可运行服务包括 `backend/admin`（FastAPI + SQLite 管理后台后端）和
-`backend/agent`（LangGraph + FastAPI Agent 服务，只读调用 admin）。
+当前可运行服务包括 `backend/admin`（FastAPI + SQLite 管理后台后端）、
+`backend/agent`（LangGraph + FastAPI Agent 服务，只读调用 admin）和
+`frontend/admin`（Vue3 管理后台前端）。`frontend/packages` 提供可被三方系统引入的
+Agent 前端插件。
 
 ## 项目解决什么问题
 
@@ -48,7 +50,9 @@ flowchart LR
 │  ├─ admin/             # FastAPI 管理后台后端
 │  └─ agent/             # Agent 服务（LangGraph + LangChain，只读 admin）
 ├─ frontend/
-│  └─ admin/             # 管理后台前端预留边界，当前无运行时
+│  ├─ admin/             # Vue3 + Ant Design Vue 管理后台前端
+│  ├─ packages/          # Agent Web Component + React/Vue 适配器
+│  └─ examples/          # vanilla / React / Vue 接入示例
 ├─ docs/                    # 产品与历史文档
 └─ scripts/                 # 根命令包装
 ```
@@ -64,6 +68,8 @@ flowchart LR
 ## 环境要求
 
 - Python `>=3.9`
+- Node.js `>=20.19`
+- pnpm `11.x`
 - 开发依赖：pytest、Ruff
 - Agent 额外依赖：LangGraph、LangChain、langchain-openai、httpx
 
@@ -75,6 +81,8 @@ python3 -m pip install -e ".[dev]"
 
 cd backend/agent
 python3 -m pip install -e ".[dev]"
+
+pnpm install
 ```
 
 ## 启动
@@ -93,6 +101,12 @@ cd backend/agent
 python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 ```
 
+管理后台前端（默认端口 5173，开发期代理 `/api` 到 admin 后端）：
+
+```bash
+pnpm dev:admin
+```
+
 默认地址：
 
 - admin API：`http://localhost:8000`
@@ -100,6 +114,7 @@ python3 -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
 - admin OpenAPI：`http://localhost:8000/openapi.json`
 - agent API：`http://localhost:8001`
 - agent Swagger UI：`http://localhost:8001/docs`
+- admin 前端：`http://localhost:5173/admin/`
 
 ## 验证
 
@@ -111,6 +126,11 @@ python3 -m pytest
 cd backend/agent
 python3 -m ruff check
 python3 -m pytest
+
+pnpm lint:frontend
+pnpm typecheck:frontend
+pnpm test:frontend
+pnpm build:frontend
 ```
 
 或使用根脚本一次验证全部：
@@ -178,6 +198,28 @@ AGENT_THIRD_PARTY_MAX_RESPONSE_BYTES
 - `GET /api/agent/audit`：查询审计事件，可按会话附带消息和评分。
 
 agent 自身接口不鉴权，通过 HTTP 调用 admin 的 `/api/app/*` 获取项目与接口配置；对标记为 `kind: api` 且 `readOnly: true` 的接口，Agent 会按项目 `baseUrl` 调用三方只读业务 API（认证通过三方 bridge 与 `AGENT_PROJECT_SECRETS` 注入）。
+
+### 前端插件
+
+原生 Web Component：
+
+```html
+<easy-agent-chat api-base-url="http://localhost:8001" user-label="demo"></easy-agent-chat>
+```
+
+React：
+
+```tsx
+import { AgentChat } from "@easy-agent-gateway/agent-react";
+
+<AgentChat apiBaseUrl="http://localhost:8001" userLabel="demo" />;
+```
+
+Vue：
+
+```vue
+<AgentChat api-base-url="http://localhost:8001" user-label="demo" />
+```
 
 ## Docker
 
@@ -276,8 +318,8 @@ sh deploy/install-from-archive.sh /path/to/easy-agent-gateway-offline-bundle.tar
 ### 部署后架构
 
 - `admin` / `agent` 仅在 Docker 内网互通，**不暴露宿主机端口**
-- `nginx` 容器作为唯一入口，监听 **80** 端口
-- 访问：`http://<目标机IP>/docs`、`http://<目标机IP>/api/agent/`
+- `nginx` 容器作为唯一入口，监听 **80** 端口，并托管管理端静态资源
+- 访问：`http://<目标机IP>/admin/`、`http://<目标机IP>/docs`、`http://<目标机IP>/api/agent/`
 
 ### 联网构建（仅开发/调试，非内网首次部署）
 

@@ -1,0 +1,8 @@
+packages:
+  - "frontend/admin"
+  - "frontend/packages/*"
+  - "frontend/examples/*"
+allowBuilds:
+  core-js: true
+  esbuild: true
+  vue-demi: true

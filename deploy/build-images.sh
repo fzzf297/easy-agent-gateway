@@ -7,7 +7,7 @@ set -eu
 # Output:
 #   deploy/easy-agent-gateway-admin.tar
 #   deploy/easy-agent-gateway-agent.tar
-#   deploy/easy-agent-gateway-nginx.tar
+#   deploy/easy-agent-gateway-nginx.tar (includes admin frontend static assets)
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 DEPLOY_DIR="$ROOT_DIR/deploy"
@@ -27,9 +27,13 @@ export DOCKER_DEFAULT_PLATFORM="$BUILD_PLATFORM"
 echo "Building application images for ${BUILD_PLATFORM}..."
 docker compose -f docker-compose.yml build
 
-echo "Pulling nginx base image (tagged for offline load)..."
-docker pull --platform "$BUILD_PLATFORM" "$NGINX_IMAGE"
-docker tag "$NGINX_IMAGE" easy-agent-gateway/nginx:latest
+echo "Building nginx image with admin frontend assets..."
+docker build \
+    --platform "$BUILD_PLATFORM" \
+    --build-arg NGINX_BASE_IMAGE="$NGINX_IMAGE" \
+    -f "$DEPLOY_DIR/nginx.Dockerfile" \
+    -t easy-agent-gateway/nginx:latest \
+    .
 
 echo "Saving images..."
 docker save easy-agent-gateway/admin:latest > "$DEPLOY_DIR/easy-agent-gateway-admin.tar"

@@ -1,5 +1,15 @@
 # Admin Frontend
 
-本目录是管理后台前端的预留边界。当前不包含可运行前端、依赖、配置或启动入口。
+Vue 3 + TypeScript + Vite management console for the Easy Agent Gateway admin API.
 
-未来的管理端 UI 应放在此目录内，并通过 `backend/admin` 公开的 OpenAPI/HTTP 契约与后端对接。
+## Scripts
+
+```bash
+pnpm --filter @easy-agent-gateway/admin dev
+pnpm --filter @easy-agent-gateway/admin lint
+pnpm --filter @easy-agent-gateway/admin typecheck
+pnpm --filter @easy-agent-gateway/admin build
+```
+
+The dev server proxies admin and agent API requests to `http://118.196.83.236` by default.
+Override the backend with `VITE_ADMIN_PROXY_TARGET` and `VITE_AGENT_PROXY_TARGET`.
