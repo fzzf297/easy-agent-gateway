@@ -2,6 +2,14 @@
   "name": "@easy-agent-gateway/agent-react",
   "version": "0.1.0",
   "description": "React wrapper for Easy Agent Gateway chat.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fzzf297/easy-agent-gateway.git",
+    "directory": "frontend/packages/agent-react"
+  },
+  "homepage": "https://github.com/fzzf297/easy-agent-gateway#readme",
+  "bugs": "https://github.com/fzzf297/easy-agent-gateway/issues",
   "type": "module",
   "main": "./dist/index.umd.cjs",
   "module": "./dist/index.js",
@@ -16,13 +24,15 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "lint": "eslint src --ext .ts,.tsx --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --emitDeclarationOnly && vite build"
+    "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly"
   },
   "peerDependencies": {
-    "@easy-agent-gateway/agent-web": "workspace:*",
     "react": ">=18",
     "react-dom": ">=18"
   },

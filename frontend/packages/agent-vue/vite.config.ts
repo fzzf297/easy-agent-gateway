@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       external: ["vue", "@easy-agent-gateway/agent-web"],
       output: {
+        exports: "named",
         globals: {
           vue: "Vue",
           "@easy-agent-gateway/agent-web": "EasyAgentGateway"

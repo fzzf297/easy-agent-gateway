@@ -203,11 +203,22 @@ agent 自身接口不鉴权，通过 HTTP 调用 admin 的 `/api/app/*` 获取�
 
 原生 Web Component：
 
+```bash
+pnpm add @easy-agent-gateway/agent-web
+```
+
 ```html
+<script type="module">
+  import "@easy-agent-gateway/agent-web";
+</script>
 <easy-agent-chat api-base-url="http://localhost:8001" user-label="demo"></easy-agent-chat>
 ```
 
 React：
+
+```bash
+pnpm add @easy-agent-gateway/agent-react
+```
 
 ```tsx
 import { AgentChat } from "@easy-agent-gateway/agent-react";
@@ -217,9 +228,22 @@ import { AgentChat } from "@easy-agent-gateway/agent-react";
 
 Vue：
 
-```vue
-<AgentChat api-base-url="http://localhost:8001" user-label="demo" />
+```bash
+pnpm add @easy-agent-gateway/agent-vue
 ```
+
+```vue
+<script setup lang="ts">
+import { AgentChat } from "@easy-agent-gateway/agent-vue";
+</script>
+
+<template>
+  <AgentChat api-base-url="http://localhost:8001" user-label="demo" />
+</template>
+```
+
+完整的 Agent API SDK、SSE 和 CDN 接入说明见
+[`frontend/packages/agent-web/README.md`](frontend/packages/agent-web/README.md)。
 
 ## Docker
 

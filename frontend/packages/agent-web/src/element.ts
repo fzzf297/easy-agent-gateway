@@ -11,8 +11,11 @@ import type {
 type ChatMessage = Pick<AgentHistoryMessage, "role" | "content">;
 
 const TAG_NAME = "easy-agent-chat";
+const HTMLElementBase = (
+  typeof HTMLElement === "undefined" ? class {} : HTMLElement
+) as typeof HTMLElement;
 
-export class EasyAgentChatElement extends HTMLElement {
+export class EasyAgentChatElement extends HTMLElementBase {
   static get observedAttributes() {
     return ["api-base-url", "session-id", "user-label", "title", "placeholder", "theme"];
   }
@@ -26,7 +29,7 @@ export class EasyAgentChatElement extends HTMLElement {
 
   constructor() {
     super();
-    this.attachShadow({ mode: "open" });
+    this.attachShadow?.({ mode: "open" });
   }
 
   connectedCallback() {

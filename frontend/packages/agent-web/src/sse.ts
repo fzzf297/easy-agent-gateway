@@ -64,13 +64,13 @@ export function normalizeAgentEvent(raw: RawSseEvent): AgentSseEvent {
       id: raw.id,
       type: parsed.type || raw.event || "message",
       payload: parsed.payload
-    };
+    } as AgentSseEvent;
   } catch {
     return {
       id: raw.id,
       type: raw.event || "message",
       payload: raw.data
-    };
+    } as AgentSseEvent;
   }
 }
 

@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       external: ["react", "react-dom", "@easy-agent-gateway/agent-web"],
       output: {
+        exports: "named",
         globals: {
           react: "React",
           "react-dom": "ReactDOM",
