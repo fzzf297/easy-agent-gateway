@@ -46,11 +46,11 @@ export class AgentClient {
     }
     this.apiBaseUrl = options.apiBaseUrl;
     this.headers = options.headers || {};
-    this.fetchImpl = options.fetchImpl || fetch;
+    this.fetchImpl = options.fetchImpl || globalThis.fetch.bind(globalThis);
   }
 
   async getHealth(): Promise<AgentHealth> {
-    const response = await this.fetchImpl(buildAgentUrl(this.apiBaseUrl, "/health"), {
+    const response = await this.fetchImpl(buildAgentUrl(this.apiBaseUrl, "/agent/health"), {
       headers: this.defaultHeaders()
     });
     return this.readJson<AgentHealth>(response);

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
+    "@easy-agent-gateway/agent-vue": "workspace:*",
     "ant-design-vue": "^4.2.6",
     "axios": "^1.7.9",
     "pinia": "^2.3.0",

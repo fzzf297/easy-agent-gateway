@@ -2,9 +2,11 @@
   <a-config-provider :locale="zhCN" :theme="theme">
     <router-view />
   </a-config-provider>
+  <AgentChat api-base-url="" title="业务助手" />
 </template>
 
 <script setup lang="ts">
+import { AgentChat } from "@easy-agent-gateway/agent-vue";
 import zhCN from "ant-design-vue/es/locale/zh_CN";
 
 const theme = {

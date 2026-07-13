@@ -11,6 +11,26 @@ describe("AgentClient", () => {
     expect(buildAgentUrl("", "/api/agent/sessions")).toBe("/api/agent/sessions");
   });
 
+  it("binds the browser fetch implementation to the global object", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(function (this: unknown) {
+      expect(this).toBe(globalThis);
+      return Promise.resolve(
+        Response.json({ status: "ok", admin: "ok", model: "deepseek-chat" })
+      );
+    });
+
+    try {
+      const client = new AgentClient({ apiBaseUrl: "http://localhost:8001" });
+      await expect(client.getHealth()).resolves.toEqual({
+        status: "ok",
+        admin: "ok",
+        model: "deepseek-chat"
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it("streams message events from the agent API", async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({
@@ -113,7 +133,7 @@ describe("AgentClient", () => {
 
     expect(fetchImpl).toHaveBeenNthCalledWith(
       1,
-      "http://localhost:8001/health",
+      "http://localhost:8001/agent/health",
       expect.objectContaining({ headers: { "X-Tenant": "demo" } })
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
