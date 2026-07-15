@@ -10,6 +10,7 @@ export const elementStyles = `
   --eag-user-bg: #2563eb;
   --eag-user-text: #ffffff;
   --eag-agent-bg: #f0f4fa;
+  --eag-launcher-gap: 28px;
   position: fixed;
   inset: 0;
   z-index: 2147483000;
@@ -51,21 +52,26 @@ svg {
 
 .launcher {
   position: fixed;
-  right: 28px;
-  bottom: 28px;
+  right: var(--eag-launcher-gap);
+  bottom: var(--eag-launcher-gap);
   width: 58px;
   height: 58px;
   display: grid;
   place-items: center;
   padding: 0;
   color: #fff;
-  cursor: pointer;
+  cursor: grab;
   background: linear-gradient(145deg, #3b82f6 0%, #1d4ed8 58%, #1e40af 100%);
   border: 0;
   border-radius: 50%;
   box-shadow: 0 14px 32px rgb(37 99 235 / 36%), 0 3px 8px rgb(15 23 42 / 18%);
   pointer-events: auto;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  touch-action: none;
+  user-select: none;
+  transition:
+    left 240ms cubic-bezier(.2, .8, .2, 1),
+    transform 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .launcher::after {
@@ -76,9 +82,15 @@ svg {
   border-radius: 50%;
 }
 
-.launcher:hover {
+.launcher:not(.launcher--dragging):hover {
   transform: translateY(-2px) scale(1.03);
   box-shadow: 0 18px 38px rgb(37 99 235 / 40%), 0 4px 10px rgb(15 23 42 / 20%);
+}
+
+.launcher--dragging {
+  cursor: grabbing;
+  transform: none;
+  transition: none;
 }
 
 .launcher:focus-visible,
@@ -619,9 +631,8 @@ svg {
 }
 
 @media (max-width: 480px) {
-  .launcher {
-    right: 18px;
-    bottom: 18px;
+  :host {
+    --eag-launcher-gap: 18px;
   }
 
   .panel--window {

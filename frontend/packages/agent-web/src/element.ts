@@ -23,6 +23,8 @@ const DRAWER_MIN_WIDTH = 320;
 const WINDOW_MIN_WIDTH = 320;
 const WINDOW_MIN_HEIGHT = 400;
 const VIEWPORT_MARGIN = 8;
+const LAUNCHER_DEFAULT_GAP = 28;
+const LAUNCHER_DRAG_THRESHOLD = 4;
 const HTMLElementBase = (
   typeof HTMLElement === "undefined" ? class {} : HTMLElement
 ) as typeof HTMLElement;
@@ -41,11 +43,13 @@ export class EasyAgentChatElement extends HTMLElementBase {
   private opened = false;
   private panelMode: PanelMode = "drawer";
   private drawerWidth = DRAWER_DEFAULT_WIDTH;
+  private launcherPosition?: WindowPosition;
   private windowPosition?: WindowPosition;
   private windowSize?: WindowSize;
   private animatePanel = false;
   private requestFailed = false;
   private stickToBottom = true;
+  private suppressLauncherClickUntil = 0;
 
   private readonly handleDocumentKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !this.opened || !this.shadowRoot?.activeElement) return;
@@ -55,6 +59,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
 
   private readonly handleViewportResize = () => {
     this.constrainPanelToViewport();
+    this.constrainLauncherToViewport();
   };
 
   constructor() {
@@ -279,9 +284,14 @@ export class EasyAgentChatElement extends HTMLElementBase {
     this.animatePanel = false;
 
     const launcher = this.shadowRoot.querySelector<HTMLButtonElement>(".launcher");
-    launcher?.addEventListener("click", () => {
+    launcher?.addEventListener("click", (event) => {
+      if (Date.now() < this.suppressLauncherClickUntil) {
+        event.preventDefault();
+        return;
+      }
       this.openPanel();
     });
+    if (launcher) this.bindLauncherDragging(launcher);
 
     const closeButton = this.shadowRoot.querySelector<HTMLButtonElement>("[data-action='close']");
     closeButton?.addEventListener("click", () => {
@@ -374,6 +384,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
   private closePanel() {
     this.opened = false;
     this.render();
+    this.constrainLauncherToViewport();
     this.shadowRoot
       ?.querySelector<HTMLButtonElement>(".launcher")
       ?.focus({ preventScroll: true });
@@ -400,10 +411,13 @@ export class EasyAgentChatElement extends HTMLElementBase {
   }
 
   private renderLauncher() {
+    const launcherStyle = this.launcherPosition
+      ? ` style="left:${this.launcherPosition.left}px;top:${this.launcherPosition.top}px;right:auto;bottom:auto"`
+      : "";
     return `
       <button class="launcher" part="launcher" type="button" aria-label="打开${escapeAttribute(
         this.title
-      )}" title="打开${escapeAttribute(this.title)}">
+      )}" title="打开${escapeAttribute(this.title)}"${launcherStyle}>
         ${chatIcon}
       </button>
     `;
@@ -486,6 +500,83 @@ export class EasyAgentChatElement extends HTMLElementBase {
       styles.push(`width:${this.windowSize.width}px`, `height:${this.windowSize.height}px`);
     }
     return styles.length ? ` style="${styles.join(";")}"` : "";
+  }
+
+  private bindLauncherDragging(launcher: HTMLButtonElement) {
+    launcher.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+
+      launcher.classList.add("launcher--dragging");
+      const startRect = launcher.getBoundingClientRect();
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const pointerId = event.pointerId;
+      let dragged = false;
+      launcher.setPointerCapture(pointerId);
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        if (moveEvent.pointerId !== pointerId) return;
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
+        if (!dragged && Math.hypot(deltaX, deltaY) < LAUNCHER_DRAG_THRESHOLD) return;
+
+        dragged = true;
+        moveEvent.preventDefault();
+        const left = clamp(
+          startRect.left + deltaX,
+          VIEWPORT_MARGIN,
+          window.innerWidth - startRect.width - VIEWPORT_MARGIN
+        );
+        const top = clamp(
+          startRect.top + deltaY,
+          VIEWPORT_MARGIN,
+          window.innerHeight - startRect.height - VIEWPORT_MARGIN
+        );
+        this.launcherPosition = { left, top };
+        launcher.style.left = `${left}px`;
+        launcher.style.top = `${top}px`;
+        launcher.style.right = "auto";
+        launcher.style.bottom = "auto";
+      };
+
+      const handleUp = (upEvent: PointerEvent) => {
+        if (upEvent.pointerId !== pointerId) return;
+        launcher.removeEventListener("pointermove", handleMove);
+        launcher.removeEventListener("pointerup", handleUp);
+        launcher.removeEventListener("pointercancel", handleUp);
+        if (launcher.hasPointerCapture(pointerId)) launcher.releasePointerCapture(pointerId);
+
+        launcher.classList.remove("launcher--dragging");
+        if (!dragged) return;
+
+        this.suppressLauncherClickUntil = Date.now() + 400;
+        const launcherWidth = launcher.offsetWidth;
+        const launcherHeight = launcher.offsetHeight;
+        const top = clamp(
+          this.launcherPosition?.top ?? launcher.getBoundingClientRect().top,
+          VIEWPORT_MARGIN,
+          window.innerHeight - launcherHeight - VIEWPORT_MARGIN
+        );
+        const left = Math.max(
+          VIEWPORT_MARGIN,
+          window.innerWidth - launcherWidth - this.getLauncherGap(launcher)
+        );
+        this.launcherPosition = { left, top };
+        launcher.style.left = `${left}px`;
+        launcher.style.top = `${top}px`;
+      };
+
+      launcher.addEventListener("pointermove", handleMove);
+      launcher.addEventListener("pointerup", handleUp);
+      launcher.addEventListener("pointercancel", handleUp);
+    });
+  }
+
+  private getLauncherGap(launcher: HTMLElement) {
+    const value = Number.parseFloat(
+      window.getComputedStyle(launcher).getPropertyValue("--eag-launcher-gap")
+    );
+    return Number.isFinite(value) ? value : LAUNCHER_DEFAULT_GAP;
   }
 
   private bindDrawerResizing(handle: HTMLElement, panel: HTMLElement) {
@@ -682,6 +773,27 @@ export class EasyAgentChatElement extends HTMLElementBase {
     panel.style.bottom = "auto";
     panel.style.width = `${width}px`;
     panel.style.height = `${height}px`;
+  }
+
+  private constrainLauncherToViewport() {
+    if (!this.launcherPosition || this.opened || !this.shadowRoot) return;
+
+    const launcher = this.shadowRoot.querySelector<HTMLButtonElement>(".launcher");
+    if (!launcher) return;
+    const launcherWidth = launcher.offsetWidth;
+    const launcherHeight = launcher.offsetHeight;
+    const left = Math.max(
+      VIEWPORT_MARGIN,
+      window.innerWidth - launcherWidth - this.getLauncherGap(launcher)
+    );
+    const top = clamp(
+      this.launcherPosition.top,
+      VIEWPORT_MARGIN,
+      window.innerHeight - launcherHeight - VIEWPORT_MARGIN
+    );
+    this.launcherPosition = { left, top };
+    launcher.style.left = `${left}px`;
+    launcher.style.top = `${top}px`;
   }
 
   private getStatusLabel() {
