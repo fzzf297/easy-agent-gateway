@@ -4,6 +4,8 @@ Easy Agent Gateway 的框架无关 Web Component 和 TypeScript SDK。接口字�
 
 组件默认显示为页面右下角悬浮按钮，点击后打开无蒙层的右侧聊天抽屉；抽屉标题栏可切换为可拖拽浮窗。
 
+输入框支持 `Enter` 发送、`Shift + Enter` 换行；按 `Esc` 可关闭当前面板。浮窗模式下双击标题栏可恢复默认尺寸和位置。
+
 ## 安装
 
 ```bash

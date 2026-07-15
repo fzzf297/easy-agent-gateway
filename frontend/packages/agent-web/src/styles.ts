@@ -34,7 +34,8 @@ export const elementStyles = `
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -83,6 +84,7 @@ svg {
 .launcher:focus-visible,
 .icon-button:focus-visible,
 .send-button:focus-visible,
+.scroll-latest:focus-visible,
 .input:focus-visible {
   outline: 3px solid rgb(59 130 246 / 24%);
   outline-offset: 2px;
@@ -125,6 +127,11 @@ svg {
   border: 1px solid var(--eag-border);
   border-radius: 16px;
   box-shadow: 0 24px 70px rgb(15 23 42 / 22%), 0 4px 18px rgb(15 23 42 / 10%);
+}
+
+.panel--resizing {
+  border-color: color-mix(in srgb, var(--eag-primary) 58%, var(--eag-border));
+  user-select: none;
 }
 
 .resize-handle {
@@ -294,9 +301,29 @@ svg {
 .status i {
   width: 7px;
   height: 7px;
-  background: #22c55e;
+  background: currentColor;
   border-radius: 50%;
-  box-shadow: 0 0 0 3px rgb(34 197 94 / 12%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.status--ready {
+  color: #16a34a;
+}
+
+.status--loading {
+  color: #d97706;
+}
+
+.status--loading i {
+  animation: status-pulse 1.2s ease-in-out infinite;
+}
+
+.status--error {
+  color: #dc2626;
+}
+
+@keyframes status-pulse {
+  50% { opacity: .35; transform: scale(.78); }
 }
 
 .header__actions {
@@ -328,7 +355,14 @@ svg {
   height: 18px;
 }
 
+.messages-shell {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .messages {
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -339,6 +373,36 @@ svg {
   background:
     radial-gradient(circle at 100% 0, rgb(59 130 246 / 6%), transparent 32%),
     var(--eag-bg);
+}
+
+.scroll-latest {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--eag-primary);
+  cursor: pointer;
+  background: var(--eag-bg);
+  border: 1px solid var(--eag-border);
+  border-radius: 50%;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 16%);
+}
+
+.scroll-latest[hidden] {
+  display: none;
+}
+
+.scroll-latest:hover {
+  background: var(--eag-surface);
+}
+
+.scroll-latest svg {
+  width: 18px;
+  height: 18px;
 }
 
 .messages::-webkit-scrollbar {
@@ -419,8 +483,76 @@ svg {
   border-bottom-left-radius: 4px;
 }
 
+.message--pending {
+  min-width: 116px;
+}
+
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--eag-muted);
+}
+
+.typing__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.typing__dots i {
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: typing-dot 1.1s ease-in-out infinite;
+}
+
+.typing__dots i:nth-child(2) { animation-delay: 140ms; }
+.typing__dots i:nth-child(3) { animation-delay: 280ms; }
+
+@keyframes typing-dot {
+  0%, 70%, 100% { opacity: .35; transform: translateY(0); }
+  35% { opacity: 1; transform: translateY(-3px); }
+}
+
+.message--error {
+  color: #b42318;
+  background: #fef3f2;
+  border: 1px solid #fecdca;
+}
+
+:host([theme="dark"]) .message--error {
+  color: #fda29b;
+  background: #3b1f24;
+  border-color: #7a271a;
+}
+
+.message__error {
+  display: grid;
+  gap: 3px;
+}
+
+.message__error strong {
+  font-size: 13px;
+}
+
+.message__error span {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+  opacity: .86;
+}
+
+.message__content + .message__error {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid currentColor;
+}
+
 .composer {
   display: flex;
+  align-items: flex-end;
   gap: 9px;
   padding: 13px 14px 14px;
   background: var(--eag-bg);
@@ -428,15 +560,19 @@ svg {
 }
 
 .input {
-  height: 42px;
+  min-height: 42px;
+  max-height: 120px;
   flex: 1;
   min-width: 0;
-  padding: 0 13px;
+  padding: 10px 13px;
+  overflow: hidden;
   color: var(--eag-text);
   background: var(--eag-surface);
   border: 1px solid transparent;
   border-radius: 10px;
   outline: none;
+  line-height: 1.5;
+  resize: none;
   transition: border-color 150ms ease, background 150ms ease;
 }
 
@@ -473,6 +609,10 @@ svg {
   opacity: .55;
 }
 
+.send-button:disabled:hover {
+  background: var(--eag-primary);
+}
+
 .send-button svg {
   width: 19px;
   height: 19px;
@@ -489,6 +629,21 @@ svg {
     bottom: 8px;
     width: calc(100vw - 16px);
     height: calc(100vh - 16px);
+  }
+
+  .composer {
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launcher,
+  .input,
+  .panel--enter,
+  .status--loading i,
+  .typing__dots i {
+    animation: none !important;
+    transition: none !important;
   }
 }
 `;
