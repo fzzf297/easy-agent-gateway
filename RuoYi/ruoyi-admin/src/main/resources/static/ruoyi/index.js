@@ -669,3 +669,74 @@ $(function() {
         }
     });
 });
+
+/**
+ * Easy Agent 插件静态加载。
+ *
+ * 入口和构建产物都位于 resources/static，部署 static 目录即可生效，
+ * 不依赖 Thymeleaf 模板改动或额外的 Spring MVC 资源映射。
+ */
+(function() {
+    var currentScript = document.currentScript;
+    var currentScriptSrc = currentScript && currentScript.src ? currentScript.src : "";
+    var pluginSrc = currentScriptSrc.replace(
+        /\/ruoyi\/index\.js(?:\?.*)?$/,
+        "/easy-agent/index.umd.js?v=20260716"
+    );
+    var apiBaseUrl = window.EASY_AGENT_API_BASE_URL || "http://118.196.83.236";
+
+    if (!pluginSrc || pluginSrc === currentScriptSrc) {
+        pluginSrc = "/easy-agent/index.umd.js?v=20260716";
+    }
+
+    function mountEasyAgent() {
+        var chat = document.querySelector("easy-agent-chat");
+        if (!chat) {
+            var userNameElement = document.querySelector(".user-menu .hidden-xs");
+            var userLabel = userNameElement && userNameElement.textContent
+                ? userNameElement.textContent.trim()
+                : "ruoyi-user";
+
+            chat = document.createElement("easy-agent-chat");
+            chat.setAttribute("api-base-url", apiBaseUrl);
+            chat.setAttribute("user-label", userLabel || "ruoyi-user");
+            chat.setAttribute("title", "业务助手");
+            document.body.appendChild(chat);
+        } else if (!chat.getAttribute("api-base-url")) {
+            chat.setAttribute("api-base-url", apiBaseUrl);
+        }
+    }
+
+    function loadEasyAgent() {
+        if (!window.customElements) {
+            window.console && console.error("当前浏览器不支持 Easy Agent 插件。");
+            return;
+        }
+        if (window.customElements.get("easy-agent-chat")) {
+            mountEasyAgent();
+            return;
+        }
+
+        var existingLoader = document.querySelector("script[data-easy-agent-plugin]");
+        if (existingLoader) {
+            existingLoader.addEventListener("load", mountEasyAgent);
+            return;
+        }
+
+        var script = document.createElement("script");
+        script.src = pluginSrc;
+        script.async = true;
+        script.setAttribute("data-easy-agent-plugin", "true");
+        script.onload = mountEasyAgent;
+        script.onerror = function() {
+            window.console && console.error("Easy Agent 插件加载失败：" + pluginSrc);
+        };
+        document.head.appendChild(script);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", loadEasyAgent, { once: true });
+    } else {
+        loadEasyAgent();
+    }
+})();
