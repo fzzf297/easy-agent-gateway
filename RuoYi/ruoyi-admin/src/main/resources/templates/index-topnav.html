@@ -587,5 +587,11 @@ function markAllRead() {
 	}
 }
 </script>
+    <script type="module" th:src="@{/frontend/packages/agent-web/dist/index.js}"></script>
+    <easy-agent-chat
+        api-base-url="/agent-gateway-proxy"
+        user-label="ruoyi-user"
+        title="业务助手">
+    </easy-agent-chat>
 </body>
 </html>

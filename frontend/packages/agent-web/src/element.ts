@@ -1,9 +1,11 @@
 import { AgentClient } from "./client";
+import { renderMarkdown } from "./markdown";
 import { elementStyles } from "./styles";
 import type {
   AgentChatEventDetailMap,
   AgentHeaders,
   AgentHistoryMessage,
+  AgentRenderMode,
   AgentSseEvent,
   AgentTheme
 } from "./types";
@@ -31,7 +33,15 @@ const HTMLElementBase = (
 
 export class EasyAgentChatElement extends HTMLElementBase {
   static get observedAttributes() {
-    return ["api-base-url", "session-id", "user-label", "title", "placeholder", "theme"];
+    return [
+      "api-base-url",
+      "session-id",
+      "user-label",
+      "title",
+      "placeholder",
+      "theme",
+      "render-mode"
+    ];
   }
 
   headers: AgentHeaders = {};
@@ -50,6 +60,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
   private requestFailed = false;
   private stickToBottom = true;
   private suppressLauncherClickUntil = 0;
+  private assistantRenderFrame?: number;
 
   private readonly handleDocumentKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !this.opened || !this.shadowRoot?.activeElement) return;
@@ -76,6 +87,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
   disconnectedCallback() {
     this.ownerDocument.removeEventListener("keydown", this.handleDocumentKeyDown);
     this.ownerDocument.defaultView?.removeEventListener("resize", this.handleViewportResize);
+    this.cancelAssistantRenderFrame();
   }
 
   attributeChangedCallback() {
@@ -131,6 +143,14 @@ export class EasyAgentChatElement extends HTMLElementBase {
     this.setAttribute("theme", value);
   }
 
+  get renderMode(): AgentRenderMode {
+    return this.getAttribute("render-mode") === "text" ? "text" : "markdown";
+  }
+
+  set renderMode(value: AgentRenderMode) {
+    this.setAttribute("render-mode", value);
+  }
+
   private get client() {
     return new AgentClient({
       apiBaseUrl: this.apiBaseUrl,
@@ -175,7 +195,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
       if (!this.requestFailed) {
         this.statusText = "Ready";
         this.finalizeAssistantMessage();
-        this.syncLastAssistantMessage();
+        this.flushLastAssistantMessageSync();
       }
       this.syncPanelState();
     }
@@ -186,7 +206,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
       const text = typeof event.payload === "string" ? event.payload : "";
       this.appendAssistantText(text);
       this.emit("message-delta", { sessionId, text });
-      this.syncLastAssistantMessage();
+      this.scheduleLastAssistantMessageSync();
       return;
     }
 
@@ -201,7 +221,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
       const content = payload?.assistantContent || this.currentAssistantContent();
       this.replaceAssistantText(content);
       this.emit("message-done", { sessionId, content });
-      this.syncLastAssistantMessage();
+      this.flushLastAssistantMessageSync();
       return;
     }
 
@@ -248,7 +268,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
     } else {
       this.messages.push({ role: "assistant", content: "", state: "error", error: message });
     }
-    this.syncLastAssistantMessage();
+    this.flushLastAssistantMessageSync();
     this.syncPanelState();
     this.emit("agent-error", {
       sessionId: this.sessionId || undefined,
@@ -315,11 +335,9 @@ export class EasyAgentChatElement extends HTMLElementBase {
       this.resizeComposerInput(input);
       this.updateSendButtonState();
     });
-    input?.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
-      event.preventDefault();
-      form?.requestSubmit();
-    });
+    input?.addEventListener("keydown", (event) =>
+      this.handleComposerKeyDown(event, form || undefined)
+    );
     form?.addEventListener("submit", (event) => this.handleSubmit(event));
     if (input) this.resizeComposerInput(input);
     this.updateSendButtonState();
@@ -396,6 +414,18 @@ export class EasyAgentChatElement extends HTMLElementBase {
     input.focus({ preventScroll: true });
     const end = input.value.length;
     input.setSelectionRange(end, end);
+  }
+
+  private handleComposerKeyDown(event: KeyboardEvent, form?: HTMLFormElement) {
+    // Host pages may globally block Backspace. Inside Shadow DOM the event target
+    // is retargeted to <easy-agent-chat>, so keep the editing event in the component.
+    if (event.key === "Backspace") {
+      event.stopPropagation();
+      return;
+    }
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    form?.requestSubmit();
   }
 
   private resizeComposerInput(input: HTMLTextAreaElement) {
@@ -832,6 +862,30 @@ export class EasyAgentChatElement extends HTMLElementBase {
     this.syncMessageScroll();
   }
 
+  private scheduleLastAssistantMessageSync() {
+    const view = this.ownerDocument.defaultView;
+    if (!view?.requestAnimationFrame) {
+      this.syncLastAssistantMessage();
+      return;
+    }
+    if (this.assistantRenderFrame !== undefined) return;
+    this.assistantRenderFrame = view.requestAnimationFrame(() => {
+      this.assistantRenderFrame = undefined;
+      this.syncLastAssistantMessage();
+    });
+  }
+
+  private flushLastAssistantMessageSync() {
+    this.cancelAssistantRenderFrame();
+    this.syncLastAssistantMessage();
+  }
+
+  private cancelAssistantRenderFrame() {
+    if (this.assistantRenderFrame === undefined) return;
+    this.ownerDocument.defaultView?.cancelAnimationFrame(this.assistantRenderFrame);
+    this.assistantRenderFrame = undefined;
+  }
+
   private syncMessageScroll() {
     const messages = this.shadowRoot?.querySelector<HTMLElement>(".messages");
     const scrollLatestButton = this.shadowRoot?.querySelector<HTMLButtonElement>(
@@ -870,8 +924,13 @@ export class EasyAgentChatElement extends HTMLElementBase {
       return `<div class="message user" part="message">${escapeHtml(message.content)}</div>`;
     }
 
+    const markdownMode = this.renderMode === "markdown";
+    const renderedContent = markdownMode
+      ? renderMarkdown(message.content)
+      : escapeHtml(message.content);
+    const contentClass = markdownMode ? "markdown-body" : "message__content--text";
     const content = message.content
-      ? `<div class="message__content">${escapeHtml(message.content)}</div>`
+      ? `<div class="message__content ${contentClass}">${renderedContent}</div>`
       : "";
     const pending =
       message.state === "pending" && !message.content

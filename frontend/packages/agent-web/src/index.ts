@@ -1,5 +1,6 @@
 export { AgentApiError, AgentClient, buildAgentUrl } from "./client";
 export { EasyAgentChatElement, defineEasyAgentChatElement } from "./element";
+export { renderMarkdown } from "./markdown";
 export { normalizeAgentEvent, parseSseBlock, parseSseText, SseStreamParser } from "./sse";
 export type {
   AgentChatCustomEvent,
@@ -19,6 +20,7 @@ export type {
   AgentInterfaceTestInput,
   AgentInterfaceTestResult,
   AgentMessageRole,
+  AgentRenderMode,
   AgentScoreInput,
   AgentSession,
   AgentSessionScore,

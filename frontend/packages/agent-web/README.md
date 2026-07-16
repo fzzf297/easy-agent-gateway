@@ -23,6 +23,21 @@ import "@easy-agent-gateway/agent-web";
 ></easy-agent-chat>
 ```
 
+助手返回值默认按 Markdown 渲染，支持标题、列表、引用、表格、链接和代码块。Markdown
+原始 HTML、可执行链接和远程图片默认禁用，最终 HTML 会在浏览器中经过安全过滤。
+用户输入始终按纯文本展示。
+
+如业务需要完全按纯文本展示助手返回值，可设置：
+
+```html
+<easy-agent-chat
+  api-base-url="https://agent.example.com"
+  render-mode="text"
+></easy-agent-chat>
+```
+
+React 和 Vue 适配器对应使用 `renderMode="text"`；默认值均为 `markdown`。
+
 纯 HTML 页面可通过固定版本的 CDN 文件注册组件：
 
 ```html

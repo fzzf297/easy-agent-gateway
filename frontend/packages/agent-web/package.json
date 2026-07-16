@@ -36,11 +36,17 @@
     "build": "vite build && tsc --emitDeclarationOnly"
   },
   "devDependencies": {
+    "@types/markdown-it": "14.1.2",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "eslint": "^8.57.1",
+    "jsdom": "29.1.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "dompurify": "3.4.12",
+    "markdown-it": "14.3.0"
   }
 }

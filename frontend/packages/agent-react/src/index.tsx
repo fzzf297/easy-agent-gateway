@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from "react";
 import type {
   AgentChatEventDetailMap,
   AgentHeaders,
+  AgentRenderMode,
   AgentTheme
 } from "@easy-agent-gateway/agent-web";
 
@@ -19,6 +20,7 @@ export interface AgentChatProps {
   title?: string;
   placeholder?: string;
   theme?: AgentTheme;
+  renderMode?: AgentRenderMode;
   headers?: AgentHeaders;
   className?: string;
   style?: React.CSSProperties;
@@ -36,6 +38,7 @@ export function AgentChat({
   title,
   placeholder,
   theme,
+  renderMode,
   headers,
   className,
   style,
@@ -85,7 +88,8 @@ export function AgentChat({
     "user-label": userLabel,
     title,
     placeholder,
-    theme
+    theme,
+    "render-mode": renderMode
   });
 }
 

@@ -246,6 +246,8 @@ import { AgentChat } from "@easy-agent-gateway/agent-vue";
 
 完整的 Agent API SDK、SSE 和 CDN 接入说明见
 [`frontend/packages/agent-web/README.md`](frontend/packages/agent-web/README.md)。
+聊天插件默认安全地按 Markdown 渲染助手返回值，并可通过 `render-mode="text"`
+或适配器的 `renderMode="text"` 切换为纯文本。
 
 ## Docker
 

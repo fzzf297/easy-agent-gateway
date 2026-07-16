@@ -1,4 +1,5 @@
 export type AgentTheme = "light" | "dark";
+export type AgentRenderMode = "markdown" | "text";
 export type AgentHeaders = Record<string, string>;
 
 export interface AgentClientOptions {
@@ -159,6 +160,7 @@ export interface AgentChatElementProps {
   title?: string;
   placeholder?: string;
   theme?: AgentTheme;
+  renderMode?: AgentRenderMode;
   headers?: AgentHeaders;
 }
 

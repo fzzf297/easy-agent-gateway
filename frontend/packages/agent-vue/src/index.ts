@@ -4,6 +4,7 @@ import { defineComponent, h, onBeforeUnmount, onMounted, ref, watch, type PropTy
 import type {
   AgentChatEventDetailMap,
   AgentHeaders,
+  AgentRenderMode,
   AgentTheme
 } from "@easy-agent-gateway/agent-web";
 
@@ -21,6 +22,7 @@ export const AgentChat = defineComponent({
     title: { type: String, default: "" },
     placeholder: { type: String, default: "" },
     theme: { type: String as PropType<AgentTheme>, default: "light" },
+    renderMode: { type: String as PropType<AgentRenderMode>, default: "markdown" },
     headers: { type: Object as PropType<AgentHeaders>, default: () => ({}) }
   },
   emits: ["session-created", "message-start", "message-delta", "message-done", "agent-error"],
@@ -63,7 +65,8 @@ export const AgentChat = defineComponent({
         "user-label": props.userLabel,
         title: props.title,
         placeholder: props.placeholder,
-        theme: props.theme
+        theme: props.theme,
+        "render-mode": props.renderMode
       });
   }
 });

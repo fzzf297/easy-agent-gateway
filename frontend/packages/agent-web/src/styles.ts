@@ -10,6 +10,9 @@ export const elementStyles = `
   --eag-user-bg: #2563eb;
   --eag-user-text: #ffffff;
   --eag-agent-bg: #f0f4fa;
+  --eag-code-bg: #111827;
+  --eag-code-text: #e5e7eb;
+  --eag-inline-code-bg: rgb(15 23 42 / 8%);
   --eag-launcher-gap: 28px;
   position: fixed;
   inset: 0;
@@ -28,6 +31,7 @@ export const elementStyles = `
   --eag-muted: #98a2b3;
   --eag-border: #344054;
   --eag-agent-bg: #253044;
+  --eag-inline-code-bg: rgb(255 255 255 / 10%);
 }
 
 * {
@@ -479,7 +483,6 @@ svg {
   border-radius: 12px;
   font-size: 14px;
   line-height: 1.65;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -488,11 +491,139 @@ svg {
   background: var(--eag-user-bg);
   border-bottom-right-radius: 4px;
   box-shadow: 0 5px 14px rgb(37 99 235 / 16%);
+  white-space: pre-wrap;
 }
 
 .message.assistant {
   background: var(--eag-agent-bg);
   border-bottom-left-radius: 4px;
+  white-space: normal;
+}
+
+.message__content {
+  min-width: 0;
+}
+
+.message__content--text {
+  white-space: pre-wrap;
+}
+
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body p,
+.markdown-body blockquote,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body pre,
+.markdown-body table,
+.markdown-body hr {
+  margin: 0 0 0.8em;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin: 1em 0 0.45em;
+  color: inherit;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.markdown-body h1 { font-size: 1.35em; }
+.markdown-body h2 { font-size: 1.22em; }
+.markdown-body h3 { font-size: 1.12em; }
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 { font-size: 1em; }
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.45em;
+}
+
+.markdown-body li + li {
+  margin-top: 0.25em;
+}
+
+.markdown-body li > p {
+  margin: 0.25em 0;
+}
+
+.markdown-body blockquote {
+  padding: 0.35em 0.8em;
+  color: var(--eag-muted);
+  border-left: 3px solid var(--eag-primary);
+}
+
+.markdown-body a {
+  color: var(--eag-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.markdown-body code {
+  padding: 0.12em 0.35em;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+  background: var(--eag-inline-code-bg);
+  border-radius: 4px;
+}
+
+.markdown-body pre {
+  max-width: 100%;
+  padding: 11px 12px;
+  overflow-x: auto;
+  color: var(--eag-code-text);
+  background: var(--eag-code-bg);
+  border-radius: 8px;
+  overscroll-behavior-x: contain;
+}
+
+.markdown-body pre code {
+  display: block;
+  min-width: max-content;
+  padding: 0;
+  color: inherit;
+  line-height: 1.55;
+  white-space: pre;
+  background: transparent;
+  border-radius: 0;
+}
+
+.markdown-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.markdown-body th,
+.markdown-body td {
+  min-width: 72px;
+  padding: 6px 8px;
+  text-align: left;
+  border: 1px solid var(--eag-border);
+}
+
+.markdown-body th {
+  font-weight: 650;
+  background: var(--eag-surface);
+}
+
+.markdown-body hr {
+  height: 1px;
+  background: var(--eag-border);
+  border: 0;
 }
 
 .message--pending {
