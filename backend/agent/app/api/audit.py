@@ -43,6 +43,7 @@ def list_audit(
         rows = session_repo.list_audit_events(
             conn, session_id=session_id, page=page, page_size=page_size
         )
+        total = session_repo.count_audit_events(conn, session_id=session_id)
         messages = (
             session_repo.list_messages(conn, session_id)
             if include_messages and session_id
@@ -67,7 +68,7 @@ def list_audit(
             "detail": json.loads(row["detail_json"]) if row["detail_json"] else {},
             "createdAt": row["created_at"],
         })
-    body = {"items": items, "page": page, "pageSize": page_size}
+    body = {"items": items, "total": total, "page": page, "pageSize": page_size}
     if include_messages:
         body["messages"] = [_message_out(row) for row in messages]
     if include_score:

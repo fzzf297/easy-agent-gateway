@@ -1,0 +1,28 @@
+# Python/runtime data
+.env
+.env.*
+!deploy/env.production.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+backend/**/data/
+
+# Frontend dependencies and build output
+node_modules/
+frontend/**/node_modules/
+frontend/**/dist/
+frontend/**/.vite/
+frontend/**/coverage/
+*.tsbuildinfo
+
+# Deployment artifacts
+deploy/*.tar
+deploy/*.tar.gz
+deploy/bundle/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

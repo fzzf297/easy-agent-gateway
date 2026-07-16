@@ -149,5 +149,6 @@ def test_audit_api_can_include_session_messages_and_score() -> None:
     body = res.json()
     assert body["score"]["score"] == 4
     assert body["score"]["comment"] == "clear"
+    assert body["total"] == 2
     assert [m["role"] for m in body["messages"]] == ["user", "assistant"]
     assert body["items"][0]["action"] == "tool_called"

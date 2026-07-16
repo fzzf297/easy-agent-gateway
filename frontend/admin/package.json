@@ -1,0 +1,32 @@
+{
+  "name": "@easy-agent-gateway/admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "lint": "eslint . --ext .ts,.vue --max-warnings=0",
+    "typecheck": "vue-tsc --noEmit --skipLibCheck",
+    "build": "vue-tsc --noEmit --skipLibCheck && vite build"
+  },
+  "dependencies": {
+    "@ant-design/icons-vue": "^7.0.1",
+    "@easy-agent-gateway/agent-vue": "workspace:*",
+    "ant-design-vue": "^4.2.6",
+    "axios": "^1.7.9",
+    "pinia": "^2.3.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-vue": "^9.32.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "vue-eslint-parser": "^9.4.3",
+    "vue-tsc": "^2.2.0"
+  }
+}

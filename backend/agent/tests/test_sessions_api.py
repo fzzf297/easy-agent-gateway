@@ -293,8 +293,10 @@ def test_audit_api_returns_events() -> None:
 
         res = client.get("/api/agent/audit")
         assert res.status_code == 200
-        items = res.json()["items"]
+        body = res.json()
+        items = body["items"]
         assert len(items) >= 2
+        assert body["total"] >= len(items)
         actions = [i["action"] for i in items]
         assert "message_received" in actions
         assert "message_completed" in actions
@@ -307,6 +309,7 @@ def test_audit_api_filter_by_session() -> None:
 
         res = client.get(f"/api/agent/audit?sessionId={session_id}")
         assert res.status_code == 200
+        assert res.json()["total"] == 0
 
 
 def test_rate_limit_blocks_excessive_session_creation() -> None:

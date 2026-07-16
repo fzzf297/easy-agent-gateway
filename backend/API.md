@@ -860,15 +860,27 @@ data: {"type":"text","payload":"你好"}
       "createdAt": "2026-07-06 10:00:00"
     }
   ],
+  "total": 1,
   "page": 1,
   "pageSize": 20,
   "messages": [],
   "score": null,
-  "sessions": []
+  "sessions": [
+    {
+      "sessionId": "uuid",
+      "userLabel": "张三",
+      "summary": "",
+      "score": 5,
+      "scoreComment": "回答准确",
+      "scoreUpdatedAt": "2026-07-06 10:00:00",
+      "createdAt": "2026-07-06 10:00:00",
+      "updatedAt": "2026-07-06 10:00:00"
+    }
+  ]
 }
 ```
 
-`messages`、`score`、`sessions` 只有对应 `include*` 为 `true` 时才返回。
+`total` 为当前审计事件筛选条件下的总数。`messages`、`score`、`sessions` 只有对应 `include*` 为 `true` 时才返回。
 
 ## 前端接入建议
 

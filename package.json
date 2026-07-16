@@ -1,0 +1,16 @@
+{
+  "name": "easy-agent-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev:admin": "pnpm --filter @easy-agent-gateway/admin dev",
+    "lint:frontend": "pnpm -r --if-present lint",
+    "typecheck:frontend": "pnpm -r --if-present typecheck",
+    "test:frontend": "pnpm -r --if-present test",
+    "build:frontend": "pnpm -r --if-present build"
+  }
+}
