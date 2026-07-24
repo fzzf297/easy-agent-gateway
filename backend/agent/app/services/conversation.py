@@ -1,6 +1,8 @@
 import asyncio
 import json
 import logging
+import sqlite3
+import time
 import uuid
 from collections.abc import AsyncIterator
 
@@ -66,6 +68,7 @@ SYSTEM_PROMPT = (
 
 _graph = None
 _graph_lock = asyncio.Lock()
+_AUDIT_RETRY_DELAYS = (0.05, 0.1)
 
 
 async def _get_graph():
@@ -121,8 +124,28 @@ def _save_messages(session_id: str, user_content: str, assistant_content: str) -
 
 
 def _save_audit(session_id: str, action: str, detail: dict) -> None:
-    with get_connection() as conn:
-        session_repo.save_audit_event(conn, session_id, action, detail)
+    for attempt in range(len(_AUDIT_RETRY_DELAYS) + 1):
+        try:
+            with get_connection() as conn:
+                session_repo.save_audit_event(conn, session_id, action, detail)
+            return
+        except sqlite3.OperationalError as exc:
+            error_message = str(exc).lower()
+            is_busy = "database is locked" in error_message or "database is busy" in error_message
+            if not is_busy:
+                raise
+            if attempt == len(_AUDIT_RETRY_DELAYS):
+                logger.warning("audit write skipped after SQLite lock: session_id=%s", session_id)
+                return
+            time.sleep(_AUDIT_RETRY_DELAYS[attempt])
+
+
+async def _cleanup_checkpoint(thread_id: str) -> None:
+    try:
+        checkpointer = await get_checkpointer()
+        await checkpointer.adelete_thread(thread_id)
+    except Exception:
+        logger.warning("checkpoint cleanup failed: thread_id=%s", thread_id, exc_info=True)
 
 
 def _sse_event(event_type: str, payload=None, event_id: str = "") -> str:
@@ -155,7 +178,7 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
     messages.append(HumanMessage(content=content))
 
     graph = await _get_graph()
-    config = {"configurable": {"thread_id": session_id}}
+    config = {"configurable": {"thread_id": correlation_id}}
 
     _save_audit(session_id, "message_received", {
         "correlation_id": correlation_id,
@@ -224,6 +247,8 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
         })
         yield _sse_event("error", {"code": "INTERNAL_ERROR", "status_code": 500})
         return
+    finally:
+        await _cleanup_checkpoint(correlation_id)
 
     saved_content = final_answer if final_answer else all_text
     _save_messages(session_id, content, saved_content)

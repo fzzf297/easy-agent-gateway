@@ -1,8 +1,11 @@
 import json
+import logging
 import os
+import sqlite3
 import tempfile
+import uuid
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 db_path = Path(tempfile.gettempdir()) / "agent-sessions-test.db"
 if db_path.exists():
@@ -79,6 +82,204 @@ def test_send_message_session_not_found() -> None:
         )
         assert res.status_code == 404
         assert res.json()["detail"] == "Session not found"
+
+
+def test_stream_uses_and_cleans_request_checkpoint() -> None:
+    from app.services import conversation
+
+    session_id = "session-1"
+    correlation_id = uuid.UUID("12345678-1234-5678-1234-567812345678")
+    graph = MagicMock()
+    checkpointer = MagicMock()
+    checkpointer.adelete_thread = AsyncMock()
+
+    class Chunk:
+        content = "done"
+
+    async def astream(*args, **kwargs):
+        graph.config = kwargs["config"]
+        yield ("messages", (Chunk(), {"langgraph_node": "agent_reason"}))
+
+    graph.astream = astream
+
+    with patch("app.services.conversation._load_history_for_context", return_value=[]), patch(
+        "app.services.conversation._save_messages"
+    ), patch("app.services.conversation._get_graph", return_value=graph), patch(
+        "app.services.conversation.get_checkpointer", new=AsyncMock(return_value=checkpointer)
+    ), patch("app.services.conversation._save_audit"), patch(
+        "app.services.conversation.uuid.uuid4", return_value=correlation_id
+    ):
+        import asyncio
+
+        asyncio.run(_collect(conversation.stream_response(session_id, "hi")))
+
+    assert graph.config["configurable"]["thread_id"] == str(correlation_id)
+    checkpointer.adelete_thread.assert_awaited_once_with(str(correlation_id))
+
+
+def test_stream_cleans_checkpoint_after_app_error() -> None:
+    from app.core.errors import AppError
+    from app.services import conversation
+
+    correlation_id = uuid.UUID("11111111-1111-1111-1111-111111111111")
+    graph = MagicMock()
+    checkpointer = MagicMock()
+    checkpointer.adelete_thread = AsyncMock()
+
+    async def astream(*args, **kwargs):
+        raise AppError("UPSTREAM_FAILED", status_code=502)
+        yield None
+
+    graph.astream = astream
+
+    with patch("app.services.conversation._load_history_for_context", return_value=[]), patch(
+        "app.services.conversation._get_graph", return_value=graph
+    ), patch(
+        "app.services.conversation.get_checkpointer", new=AsyncMock(return_value=checkpointer)
+    ), patch("app.services.conversation._save_audit"), patch(
+        "app.services.conversation.uuid.uuid4", return_value=correlation_id
+    ):
+        import asyncio
+
+        events = asyncio.run(_collect(conversation.stream_response("session-1", "hi")))
+
+    assert '"code": "UPSTREAM_FAILED"' in events[-1]
+    checkpointer.adelete_thread.assert_awaited_once_with(str(correlation_id))
+
+
+def test_failed_tool_turn_uses_fresh_checkpoint_for_next_request() -> None:
+    from app.services import conversation
+
+    first_correlation_id = uuid.UUID("33333333-3333-3333-3333-333333333333")
+    second_correlation_id = uuid.UUID("44444444-4444-4444-4444-444444444444")
+    graph = MagicMock()
+    checkpointer = MagicMock()
+    checkpointer.adelete_thread = AsyncMock()
+    request_messages = []
+    request_configs = []
+
+    class Chunk:
+        content = "done"
+
+    async def astream(payload, **kwargs):
+        request_messages.append(payload["messages"])
+        request_configs.append(kwargs["config"])
+        if len(request_configs) == 1:
+            yield ("updates", {"tools": {"messages": []}})
+            raise RuntimeError("tool execution failed")
+        yield ("messages", (Chunk(), {"langgraph_node": "agent_reason"}))
+
+    graph.astream = astream
+
+    with patch("app.services.conversation._load_history_for_context", return_value=[]), patch(
+        "app.services.conversation._save_messages"
+    ), patch("app.services.conversation._get_graph", return_value=graph), patch(
+        "app.services.conversation.get_checkpointer", new=AsyncMock(return_value=checkpointer)
+    ), patch("app.services.conversation._save_audit"), patch(
+        "app.services.conversation.uuid.uuid4",
+        side_effect=[first_correlation_id, second_correlation_id],
+    ):
+        import asyncio
+
+        asyncio.run(_collect(conversation.stream_response("session-1", "first")))
+        asyncio.run(_collect(conversation.stream_response("session-1", "second")))
+
+    assert request_configs == [
+        {"configurable": {"thread_id": str(first_correlation_id)}},
+        {"configurable": {"thread_id": str(second_correlation_id)}},
+    ]
+    assert all(not getattr(message, "tool_calls", []) for message in request_messages[1])
+    assert checkpointer.adelete_thread.await_args_list == [
+        ((str(first_correlation_id),), {}),
+        ((str(second_correlation_id),), {}),
+    ]
+
+
+def test_audit_retries_locked_database_without_breaking_request() -> None:
+    from app.services import conversation
+
+    original_save = conversation.session_repo.save_audit_event
+    attempts = 0
+    session_id = f"audit-retry-{uuid.uuid4()}"
+
+    def save(conn, saved_session_id, action, detail):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise sqlite3.OperationalError("database is locked")
+        if attempts == 2:
+            raise sqlite3.OperationalError("database is busy")
+        original_save(conn, saved_session_id, action, detail)
+
+    with patch("app.services.conversation.session_repo.save_audit_event", side_effect=save), patch(
+        "app.services.conversation.time.sleep"
+    ) as sleep:
+        conversation._save_audit(session_id, "error", {"code": "x"})
+
+    from app.db.database import get_connection
+    from app.repositories import sessions as session_repo
+
+    with get_connection() as conn:
+        events = session_repo.list_audit_events(conn, session_id=session_id)
+
+    assert attempts == 3
+    assert sleep.call_count == 2
+    assert events[0]["action"] == "error"
+
+
+def test_audit_lock_exhaustion_is_best_effort(caplog) -> None:
+    from app.services import conversation
+
+    save = MagicMock(side_effect=sqlite3.OperationalError("database is locked"))
+    with caplog.at_level(logging.WARNING), patch(
+        "app.services.conversation.session_repo.save_audit_event", save
+    ), patch("app.services.conversation.time.sleep"):
+        conversation._save_audit("session-1", "error", {"code": "x"})
+
+    assert save.call_count == 3
+    assert "audit write skipped after SQLite lock" in caplog.text
+
+
+def test_stream_returns_done_when_audit_is_continuously_locked() -> None:
+    from app.services import conversation
+
+    graph = MagicMock()
+    checkpointer = MagicMock()
+    checkpointer.adelete_thread = AsyncMock()
+
+    class Chunk:
+        content = "done"
+
+    async def astream(*args, **kwargs):
+        yield ("messages", (Chunk(), {"langgraph_node": "agent_reason"}))
+
+    graph.astream = astream
+    locked_save = MagicMock(side_effect=sqlite3.OperationalError("database is locked"))
+
+    with patch("app.services.conversation._load_history_for_context", return_value=[]), patch(
+        "app.services.conversation._save_messages"
+    ), patch("app.services.conversation._get_graph", return_value=graph), patch(
+        "app.services.conversation.get_checkpointer", new=AsyncMock(return_value=checkpointer)
+    ), patch("app.services.conversation.session_repo.save_audit_event", locked_save), patch(
+        "app.services.conversation.time.sleep"
+    ):
+        import asyncio
+
+        events = asyncio.run(_collect(conversation.stream_response("session-1", "hi")))
+
+    assert '"type": "done"' in events[-1]
+    assert locked_save.call_count == 6
+
+
+def test_database_connection_sets_busy_timeout() -> None:
+    from app.db.database import get_connection
+
+    with get_connection() as conn:
+        assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+
+
+async def _collect(stream):
+    return [item async for item in stream]
 
 
 def test_history_after_send_message() -> None:
