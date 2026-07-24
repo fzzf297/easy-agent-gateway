@@ -16,7 +16,7 @@ from app.schemas.session import (
     SessionScoreIn,
     SessionScoreOut,
 )
-from app.services.conversation import stream_response
+from app.services import chat
 from app.services.event_buffer import replay_then_stream, store_event
 
 router = APIRouter()
@@ -65,9 +65,21 @@ def get_history(session_id: str) -> HistoryOut:
         rows = session_repo.list_messages(conn, session_id)
     messages = []
     for row in rows:
-        content = json.loads(row["content_json"]).get("content", "")
+        payload = json.loads(row["content_json"])
+        surfaces = payload.get("surfaces") or []
+        surface_ids = [
+            item.get("surfaceId")
+            for item in surfaces
+            if isinstance(item, dict) and item.get("surfaceId")
+        ]
         messages.append(
-            MessageOut(role=row["role"], content=content, createdAt=row["created_at"])
+            MessageOut(
+                role=row["role"],
+                content=payload.get("content", ""),
+                createdAt=row["created_at"],
+                responseMode=payload.get("responseMode", "TEXT"),
+                surfaceIds=surface_ids,
+            )
         )
     return HistoryOut(sessionId=session_id, messages=messages)
 
@@ -93,7 +105,7 @@ def score_session(session_id: str, payload: SessionScoreIn) -> SessionScoreOut:
 
 
 async def _buffered_stream(session_id: str, content: str):
-    async for sse_line in stream_response(session_id, content):
+    async for sse_line in chat.stream_message(session_id, content):
         event_id = ""
         for line in sse_line.split("\n"):
             if line.startswith("id: "):

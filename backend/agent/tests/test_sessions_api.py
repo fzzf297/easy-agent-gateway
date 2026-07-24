@@ -56,7 +56,7 @@ def test_send_message_sse_stream() -> None:
             yield 'data: {"type":"text","payload":"hello"}\n\n'
             yield 'data: {"type":"done","payload":{"assistantContent":"hello"}}\n\n'
 
-        with patch("app.api.sessions.stream_response", side_effect=fake_stream):
+        with patch("app.api.sessions.chat.stream_message", side_effect=fake_stream):
             res = client.post(
                 f"/api/agent/sessions/{session_id}/messages",
                 json={"content": "hi"},
@@ -291,7 +291,7 @@ def test_history_after_send_message() -> None:
             yield 'data: {"type":"text","payload":"reply"}\n\n'
             yield 'data: {"type":"done","payload":{"assistantContent":"reply"}}\n\n'
 
-        with patch("app.api.sessions.stream_response", side_effect=fake_stream):
+        with patch("app.api.sessions.chat.stream_message", side_effect=fake_stream):
             client.post(
                 f"/api/agent/sessions/{session_id}/messages",
                 json={"content": "question"},

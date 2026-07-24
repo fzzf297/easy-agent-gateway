@@ -721,16 +721,56 @@ data: {"type":"text","payload":"你好"}
 
 | type | payload |
 | --- | --- |
-| `text` | 字符串，模型增量文本 |
+| `text` | 字符串，模型增量文本（兼容） |
+| `text-delta` | 与 `text` 相同内容，协议对齐命名 |
 | `tool_status` | `{ "node": "tools", "status": "done" }` 等工具/节点状态 |
+| `a2ui-message` | A2UI 消息对象（`createSurface` / `updateComponents` / `updateDataModel` / `deleteSurface`） |
 | `error` | `{ "code": "错误码", "status_code": 500 }` |
-| `done` | `{ "assistantContent": "完整回答" }` |
+| `done` | `{ "assistantContent": "完整回答", "responseMode": "TEXT", "surfaceIds": [] }` |
 
 前端建议：
 
 - 展示时拼接所有 `type=text` 的 `payload`。
+- 收到 `type=a2ui-message` 时交给 A2UI Renderer（未实现时可忽略）。
 - 收到 `type=done` 后用 `payload.assistantContent` 作为最终回答。
 - 收到 `type=error` 后停止本轮展示并提示 `payload.code`。
+
+### `GET /api/agent/a2ui/catalog`
+
+说明：返回 A2UI Catalog。不鉴权。
+
+响应：
+
+```json
+{
+  "catalogId": "ruoyi-agent-a2ui",
+  "version": "0.1.0",
+  "components": ["AiText", "AiTable"],
+  "actions": ["interface.write.confirm", "interface.write.preview"]
+}
+```
+
+### `POST /api/agent/actions`
+
+说明：执行 A2UI Action 白名单动作。不鉴权；写操作走已配置第三方 write 接口，并按 `idempotencyKey` 去重。
+
+请求：
+
+```json
+{
+  "conversationId": "session-id",
+  "surfaceId": "write_s1",
+  "idempotencyKey": "idem-001-abcdef",
+  "action": {
+    "name": "interface.write.confirm",
+    "context": {
+      "projectCode": "demo",
+      "interfaceCode": "user_create",
+      "params": {"userName": "zhang"}
+    }
+  }
+}
+```
 
 ### `PUT /api/agent/sessions/{sessionId}/score`
 

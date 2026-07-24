@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import audit, health, interface_tests, sessions
+from app.api import a2ui, audit, health, interface_tests, sessions
 from app.core.config import settings
 from app.core.errors import register_error_handlers
 from app.db.database import initialize_database
@@ -77,6 +77,7 @@ def create_app() -> FastAPI:
         prefix="/api/agent",
         tags=["agent-interface-tests"],
     )
+    app.include_router(a2ui.router, prefix="/api/agent", tags=["agent-a2ui"])
     app.include_router(audit.router, prefix="/api/agent", tags=["agent-audit"])
 
     return app

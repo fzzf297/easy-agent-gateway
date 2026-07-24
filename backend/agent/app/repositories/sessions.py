@@ -61,8 +61,12 @@ def save_message(
     session_id: str,
     role: str,
     content: str,
+    extra: Optional[dict] = None,
 ) -> None:
-    content_json = json.dumps({"content": content}, ensure_ascii=False, separators=(",", ":"))
+    payload: dict = {"content": content}
+    if extra:
+        payload.update(extra)
+    content_json = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     conn.execute(
         """
         INSERT INTO agent_messages(session_id, role, content_json)

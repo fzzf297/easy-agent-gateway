@@ -5,16 +5,22 @@ import sqlite3
 import time
 import uuid
 from collections.abc import AsyncIterator
+from typing import Optional
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
+from app.a2ui.generator import generate_a2ui
+from app.a2ui.intent import route_intent
+from app.a2ui.surface_builder import surfaces_from_a2ui_messages
 from app.core.config import settings
 from app.core.errors import AppError
 from app.core.llm import build_llm
 from app.db.database import get_connection
 from app.graphs.agent import build_graph
 from app.graphs.checkpointer import get_checkpointer
+from app.repositories import a2ui_store
 from app.repositories import sessions as session_repo
+from app.services.business_context import build_context
 from app.tools.registry import get_tools
 
 logger = logging.getLogger(__name__)
@@ -116,10 +122,21 @@ def _build_summary(rows: list[dict]) -> str:
     return "\n".join(parts)
 
 
-def _save_messages(session_id: str, user_content: str, assistant_content: str) -> None:
+def _save_messages(
+    session_id: str,
+    user_content: str,
+    assistant_content: str,
+    assistant_extra: Optional[dict] = None,
+) -> None:
     with get_connection() as conn:
         session_repo.save_message(conn, session_id, "user", user_content)
-        session_repo.save_message(conn, session_id, "assistant", assistant_content)
+        session_repo.save_message(
+            conn,
+            session_id,
+            "assistant",
+            assistant_content,
+            extra=assistant_extra,
+        )
         session_repo.touch_session(conn, session_id)
 
 
@@ -189,6 +206,7 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
     final_answer = ""
     seen_tools = False
     tool_calls_used = []
+    tool_results: list[str] = []
     try:
         async for mode, payload in graph.astream(
             {"messages": messages, "correlation_id": correlation_id},
@@ -206,7 +224,9 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
                             seen_tools = False
                         else:
                             final_answer += text
-                    yield _sse_event("text", text, _next_event_id())
+                    text_event_id = _next_event_id()
+                    yield _sse_event("text", text, text_event_id)
+                    yield _sse_event("text-delta", text, _next_event_id())
             elif mode == "updates":
                 for node_name in payload:
                     if node_name == "tools":
@@ -215,6 +235,8 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
                         for msg in payload[node_name].get("messages", []):
                             if hasattr(msg, "content"):
                                 last_msg = msg
+                                if isinstance(msg.content, str) and msg.content:
+                                    tool_results.append(msg.content)
                         if last_msg:
                             summary = last_msg.content[:200]
                             tool_calls_used.append(summary)
@@ -251,14 +273,74 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
         await _cleanup_checkpoint(correlation_id)
 
     saved_content = final_answer if final_answer else all_text
-    _save_messages(session_id, content, saved_content)
+    intent_info = route_intent(content)
+    intent_name = intent_info.get("intent", "GENERAL_QA")
+    desired_mode = intent_info.get("responseMode", "TEXT")
+    response_mode = "TEXT"
+    surface_ids: list[str] = []
+    a2ui_emitted: list[dict] = []
+
+    if desired_mode in {"TEXT_WITH_A2UI", "A2UI_ONLY"}:
+        context = await build_context(intent_name, content)
+        generated = await generate_a2ui(
+            intent=intent_name,
+            context=context,
+            tool_results=tool_results,
+            user_text=content,
+            surface_prefix=f"tool_{correlation_id[:8]}",
+        )
+        if generated.degraded and not generated.messages:
+            _save_audit(
+                session_id,
+                "a2ui_generation_degraded",
+                {
+                    "correlation_id": correlation_id,
+                    "intent": intent_name,
+                    "source": generated.source,
+                    "error": generated.error,
+                },
+            )
+        for message in generated.messages:
+            a2ui_emitted.append(message)
+            yield _sse_event("a2ui-message", message, _next_event_id())
+        if generated.messages:
+            response_mode = desired_mode
+            for surface in surfaces_from_a2ui_messages(generated.messages):
+                surface_ids.append(surface["surfaceId"])
+                with get_connection() as conn:
+                    a2ui_store.upsert_surface(
+                        conn,
+                        surface_id=surface["surfaceId"],
+                        session_id=session_id,
+                        message_id=correlation_id,
+                        catalog_version=str(surface.get("catalogVersion") or ""),
+                        component_json=surface.get("componentJson") or {},
+                        data_model_json=surface.get("dataModelJson") or {},
+                    )
+
+    assistant_extra = {
+        "responseMode": response_mode,
+        "surfaces": surfaces_from_a2ui_messages(a2ui_emitted),
+    }
+    _save_messages(session_id, content, saved_content, assistant_extra=assistant_extra)
     _save_audit(session_id, "message_completed", {
         "correlation_id": correlation_id,
         "response_length": len(saved_content),
         "tool_calls": len(tool_calls_used),
+        "response_mode": response_mode,
+        "surface_count": len(surface_ids),
+        "intent": intent_name,
     })
     logger.info(
-        "stream_response done: session_id=%s correlation_id=%s response_len=%d tools=%d",
-        session_id, correlation_id, len(saved_content), len(tool_calls_used),
+        "stream_response done: session_id=%s correlation_id=%s response_len=%d tools=%d a2ui=%d",
+        session_id, correlation_id, len(saved_content), len(tool_calls_used), len(surface_ids),
     )
-    yield _sse_event("done", {"assistantContent": saved_content}, _next_event_id())
+    yield _sse_event(
+        "done",
+        {
+            "assistantContent": saved_content,
+            "responseMode": response_mode,
+            "surfaceIds": surface_ids,
+        },
+        _next_event_id(),
+    )

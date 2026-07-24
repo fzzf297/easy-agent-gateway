@@ -24,6 +24,8 @@ class MessageOut(ApiModel):
     role: str
     content: str
     createdAt: str
+    responseMode: str = "TEXT"
+    surfaceIds: list[str] = Field(default_factory=list)
 
 
 class HistoryOut(ApiModel):

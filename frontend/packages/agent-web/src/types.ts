@@ -123,6 +123,12 @@ export interface AgentTextEvent {
   payload: string;
 }
 
+export interface AgentTextDeltaEvent {
+  id?: string;
+  type: "text-delta";
+  payload: string;
+}
+
 export interface AgentToolStatusEvent {
   id?: string;
   type: "tool_status";
@@ -132,7 +138,11 @@ export interface AgentToolStatusEvent {
 export interface AgentDoneEvent {
   id?: string;
   type: "done";
-  payload: { assistantContent: string };
+  payload: {
+    assistantContent: string;
+    responseMode?: "TEXT" | "TEXT_WITH_A2UI" | "A2UI_ONLY";
+    surfaceIds?: string[];
+  };
 }
 
 export interface AgentStreamErrorEvent {
@@ -141,9 +151,17 @@ export interface AgentStreamErrorEvent {
   payload: { code: string; status_code: number };
 }
 
+export interface AgentA2UIMessageEvent {
+  id?: string;
+  type: "a2ui-message";
+  payload: Record<string, unknown>;
+}
+
 export type AgentSseEvent =
   | AgentTextEvent
+  | AgentTextDeltaEvent
   | AgentToolStatusEvent
+  | AgentA2UIMessageEvent
   | AgentDoneEvent
   | AgentStreamErrorEvent;
 

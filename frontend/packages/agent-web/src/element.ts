@@ -210,17 +210,39 @@ export class EasyAgentChatElement extends HTMLElementBase {
       return;
     }
 
+    // text-delta mirrors text for protocol compatibility; avoid double-append.
+    if (event.type === "text-delta") {
+      this.emit("message-delta", {
+        sessionId,
+        text: typeof event.payload === "string" ? event.payload : "",
+        protocol: "text-delta"
+      });
+      return;
+    }
+
     if (event.type === "tool_status") {
       this.statusText = "Tool finished";
       this.syncPanelState();
       return;
     }
 
+    if (event.type === "a2ui-message") {
+      this.emit("a2ui-message", { sessionId, payload: event.payload });
+      return;
+    }
+
     if (event.type === "done") {
-      const payload = event.payload as { assistantContent?: string } | undefined;
+      const payload = event.payload as
+        | { assistantContent?: string; responseMode?: string; surfaceIds?: string[] }
+        | undefined;
       const content = payload?.assistantContent || this.currentAssistantContent();
       this.replaceAssistantText(content);
-      this.emit("message-done", { sessionId, content });
+      this.emit("message-done", {
+        sessionId,
+        content,
+        responseMode: payload?.responseMode,
+        surfaceIds: payload?.surfaceIds || []
+      });
       this.flushLastAssistantMessageSync();
       return;
     }

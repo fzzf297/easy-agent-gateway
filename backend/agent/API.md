@@ -94,18 +94,22 @@
     {
       "role": "user",
       "content": "查询用户列表",
-      "createdAt": "2026-07-13 10:00:00"
+      "createdAt": "2026-07-13 10:00:00",
+      "responseMode": "TEXT",
+      "surfaceIds": []
     },
     {
       "role": "assistant",
       "content": "查询结果如下：",
-      "createdAt": "2026-07-13 10:00:02"
+      "createdAt": "2026-07-13 10:00:02",
+      "responseMode": "TEXT_WITH_A2UI",
+      "surfaceIds": ["tool_12345678_0"]
     }
   ]
 }
 ```
 
-`role` 当前为 `user` 或 `assistant`。会话不存在时返回 HTTP `404`：
+`role` 当前为 `user` 或 `assistant`。`responseMode` / `surfaceIds` 用于 A2UI 历史回放；纯文本消息默认为 `TEXT` 与空数组。会话不存在时返回 HTTP `404`：
 
 ```json
 {
@@ -141,9 +145,11 @@ data: {"type":"text","payload":"正在查询…"}
 
 | `type` | `payload` | 说明 |
 | --- | --- | --- |
-| `text` | 字符串 | 模型生成的文本增量。 |
+| `text` | 字符串 | 模型生成的文本增量（兼容旧客户端）。 |
+| `text-delta` | 字符串 | 与 `text` 同内容的协议对齐事件（方案命名）；新客户端可二选一消费，避免重复拼接。 |
 | `tool_status` | `{"node":"节点名","status":"done"}` | 图节点完成状态。 |
-| `done` | `{"assistantContent":"完整回复"}` | 正常结束；完整回复会持久化至会话历史。 |
+| `a2ui-message` | A2UI 消息对象（`createSurface` / `updateComponents` / `updateDataModel` / `deleteSurface` 之一） | 声明式 UI；仅在可表格化的工具结果且意图为查询/写入类时附带。 |
+| `done` | `{"assistantContent":"完整回复","responseMode":"TEXT\|TEXT_WITH_A2UI","surfaceIds":[]}` | 正常结束；完整回复与可选 Surface 会持久化至会话历史。 |
 | `error` | `{"code":"错误码","status_code":500}` | 流处理期间发生错误，流随后结束。 |
 
 可使用 `Last-Event-ID` 请求头请求重放同一会话中该事件之后的内存缓存事件。每个会话最多缓存 200 条事件，进程重启后缓存失效。
@@ -151,6 +157,68 @@ data: {"type":"text","payload":"正在查询…"}
 > 此接口同时承担“发送消息”和“推流”职责。携带 `Last-Event-ID` 重新发起请求后，服务会在重放缓存事件后继续处理本次请求体中的 `content`，客户端不应将其视为纯事件订阅接口。
 
 会话不存在时返回 HTTP `404`。
+
+> 与技术方案中的 `POST /api/ai/chat` 等价：本仓统一使用 `POST /api/agent/sessions/{sessionId}/messages`（需先创建 session），由 `app.services.chat.stream_message` 编排。
+
+### `GET /api/agent/a2ui/catalog`
+
+返回企业 A2UI Catalog（组件与 Action 白名单）。
+
+响应示例：
+
+```json
+{
+  "catalogId": "ruoyi-agent-a2ui",
+  "version": "0.1.0",
+  "components": ["AiAlert", "AiButton", "AiCard", "AiTable", "AiText"],
+  "actions": ["interface.query.render", "interface.write.confirm", "interface.write.preview"]
+}
+```
+
+### `POST /api/agent/actions`
+
+执行 A2UI Action（白名单）。写操作复用已配置的第三方 write 接口；同一 `idempotencyKey` 在进程内只执行一次。
+
+请求体：
+
+```json
+{
+  "conversationId": "8fd4ba30-60d1-478c-a9fb-f89fd35e6538",
+  "messageId": "",
+  "surfaceId": "write_s1",
+  "idempotencyKey": "idem-001-abcdef",
+  "action": {
+    "name": "interface.write.confirm",
+    "context": {
+      "projectCode": "demo",
+      "interfaceCode": "user_create",
+      "params": {"userName": "zhang"}
+    }
+  }
+}
+```
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `conversationId` | 是 | 对应 sessionId。 |
+| `surfaceId` | 是 | A2UI Surface ID。 |
+| `idempotencyKey` | 是 | 长度 8..128，用于防重复执行。 |
+| `action.name` | 是 | 必须在 Catalog actions 白名单内。 |
+| `action.context` | 视动作 | `interface.write.*` 需要 `projectCode` / `interfaceCode` / `params`。 |
+
+成功时返回：
+
+```json
+{
+  "ok": true,
+  "message": "写操作已执行",
+  "responseMode": "TEXT",
+  "text": "写操作已执行",
+  "a2uiMessages": []
+}
+```
+
+未知 action 返回 HTTP `400`；会话不存在返回 HTTP `404`。
 
 ### `PUT /api/agent/sessions/{sessionId}/score`
 
