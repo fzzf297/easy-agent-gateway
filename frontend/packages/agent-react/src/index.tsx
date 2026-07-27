@@ -21,6 +21,7 @@ export interface AgentChatProps {
   placeholder?: string;
   theme?: AgentTheme;
   renderMode?: AgentRenderMode;
+  a2uiEnabled?: boolean;
   headers?: AgentHeaders;
   className?: string;
   style?: React.CSSProperties;
@@ -28,6 +29,10 @@ export interface AgentChatProps {
   onMessageStart?: (detail: AgentChatEventDetailMap["message-start"]) => void;
   onMessageDelta?: (detail: AgentChatEventDetailMap["message-delta"]) => void;
   onMessageDone?: (detail: AgentChatEventDetailMap["message-done"]) => void;
+  onA2UIMessage?: (detail: AgentChatEventDetailMap["a2ui-message"]) => void;
+  onA2UIActionStart?: (detail: AgentChatEventDetailMap["a2ui-action-start"]) => void;
+  onA2UIActionDone?: (detail: AgentChatEventDetailMap["a2ui-action-done"]) => void;
+  onA2UIError?: (detail: AgentChatEventDetailMap["a2ui-error"]) => void;
   onAgentError?: (detail: AgentChatEventDetailMap["agent-error"]) => void;
 }
 
@@ -39,6 +44,7 @@ export function AgentChat({
   placeholder,
   theme,
   renderMode,
+  a2uiEnabled = true,
   headers,
   className,
   style,
@@ -46,6 +52,10 @@ export function AgentChat({
   onMessageStart,
   onMessageDelta,
   onMessageDone,
+  onA2UIMessage,
+  onA2UIActionStart,
+  onA2UIActionDone,
+  onA2UIError,
   onAgentError
 }: AgentChatProps) {
   const ref = useRef<EasyAgentElement | null>(null);
@@ -65,6 +75,10 @@ export function AgentChat({
       ["message-start", (event) => onMessageStart?.((event as CustomEvent).detail)],
       ["message-delta", (event) => onMessageDelta?.((event as CustomEvent).detail)],
       ["message-done", (event) => onMessageDone?.((event as CustomEvent).detail)],
+      ["a2ui-message", (event) => onA2UIMessage?.((event as CustomEvent).detail)],
+      ["a2ui-action-start", (event) => onA2UIActionStart?.((event as CustomEvent).detail)],
+      ["a2ui-action-done", (event) => onA2UIActionDone?.((event as CustomEvent).detail)],
+      ["a2ui-error", (event) => onA2UIError?.((event as CustomEvent).detail)],
       ["agent-error", (event) => onAgentError?.((event as CustomEvent).detail)]
     ];
 
@@ -77,7 +91,17 @@ export function AgentChat({
         element.removeEventListener(name, listener);
       }
     };
-  }, [onAgentError, onMessageDelta, onMessageDone, onMessageStart, onSessionCreated]);
+  }, [
+    onA2UIActionDone,
+    onA2UIActionStart,
+    onA2UIError,
+    onA2UIMessage,
+    onAgentError,
+    onMessageDelta,
+    onMessageDone,
+    onMessageStart,
+    onSessionCreated
+  ]);
 
   return React.createElement("easy-agent-chat", {
     ref,
@@ -89,7 +113,8 @@ export function AgentChat({
     title,
     placeholder,
     theme,
-    "render-mode": renderMode
+    "render-mode": renderMode,
+    "a2ui-mode": a2uiEnabled ? "auto" : "off"
   });
 }
 

@@ -15,7 +15,15 @@ os.environ["AGENT_LLM_API_KEY"] = "test-key"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app.a2ui.surface_builder import surfaces_from_a2ui_messages  # noqa: E402
+from app.a2ui.templates import (  # noqa: E402
+    build_write_confirm_card,
+    build_write_success_update,
+)
+from app.db.database import get_connection  # noqa: E402
 from app.main import app  # noqa: E402
+from app.repositories import a2ui_store  # noqa: E402
+from app.repositories import sessions as session_repo  # noqa: E402
 
 
 def test_create_session() -> None:
@@ -45,6 +53,76 @@ def test_get_history_session_not_found() -> None:
     with TestClient(app) as client:
         res = client.get("/api/agent/sessions/nope/history")
         assert res.status_code == 404
+
+
+def test_history_rebuilds_the_latest_persisted_a2ui_surface() -> None:
+    with TestClient(app) as client:
+        session_id = client.post("/api/agent/sessions", json={}).json()["sessionId"]
+        initial = build_write_confirm_card(
+            surface_id="history-write-surface",
+            project_code="demo",
+            interface_code="user_create",
+            params_summary={"name": "Alice"},
+        )
+        success = build_write_success_update("history-write-surface")
+        with get_connection() as conn:
+            session_repo.save_message(conn, session_id, "user", "create")
+            session_repo.save_message(
+                conn,
+                session_id,
+                "assistant",
+                "请确认",
+                {
+                    "responseMode": "TEXT_WITH_A2UI",
+                    "surfaces": surfaces_from_a2ui_messages(initial),
+                    "a2uiMessages": initial,
+                },
+            )
+            a2ui_store.apply_messages(
+                conn,
+                session_id=session_id,
+                message_id="message-1",
+                messages=initial,
+            )
+            a2ui_store.apply_messages(
+                conn,
+                session_id=session_id,
+                message_id="message-1",
+                messages=success,
+            )
+
+        response = client.get(f"/api/agent/sessions/{session_id}/history")
+
+    assert response.status_code == 200
+    assistant = response.json()["messages"][1]
+    assert assistant["surfaceIds"] == ["history-write-surface"]
+    restored = assistant["a2uiMessages"]
+    assert [next(key for key in item if key != "version") for item in restored] == [
+        "createSurface",
+        "updateComponents",
+        "updateDataModel",
+    ]
+    components = restored[1]["updateComponents"]["components"]
+    by_id = {item["id"]: item for item in components}
+    assert by_id["root"]["component"] == "AiCard"
+    assert by_id["confirm"]["component"] == "AiAlert"
+
+    with get_connection() as conn:
+        a2ui_store.apply_messages(
+            conn,
+            session_id=session_id,
+            message_id="message-1",
+            messages=[
+                {
+                    "version": "v0.9",
+                    "deleteSurface": {"surfaceId": "history-write-surface"},
+                }
+            ],
+        )
+    with TestClient(app) as client:
+        deleted = client.get(f"/api/agent/sessions/{session_id}/history").json()["messages"][1]
+    assert deleted["surfaceIds"] == []
+    assert deleted["a2uiMessages"] == []
 
 
 def test_send_message_sse_stream() -> None:

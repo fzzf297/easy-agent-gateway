@@ -1,6 +1,7 @@
 import json
 
 from app.a2ui.surface_builder import (
+    apply_data_model_update,
     build_validated_query_messages,
     extract_tabular_data,
     surfaces_from_a2ui_messages,
@@ -47,3 +48,11 @@ def test_surfaces_from_a2ui_messages() -> None:
     assert surfaces[0]["surfaceId"] == "s1"
     assert "root" in surfaces[0]["componentJson"]
     assert "table" in surfaces[0]["dataModelJson"]
+
+
+def test_apply_data_model_update_merges_objects_and_arrays() -> None:
+    current = {"form": {"items": [{"name": "A"}, {"name": "B"}]}}
+    updated = apply_data_model_update(current, "/form/items/1/name", "Updated")
+    assert updated["form"]["items"][0]["name"] == "A"
+    assert updated["form"]["items"][1]["name"] == "Updated"
+    assert current["form"]["items"][1]["name"] == "B"

@@ -10,8 +10,8 @@ ResponseMode = Literal["TEXT", "TEXT_WITH_A2UI", "A2UI_ONLY"]
 class A2UICreateSurface(ApiModel):
     surfaceId: str = Field(..., min_length=1, max_length=128)
     catalogId: str
-    catalogVersion: str
-    rootId: str
+    theme: Any = None
+    sendDataModel: bool = False
 
 
 class A2UIUpdateComponents(ApiModel):
@@ -21,7 +21,8 @@ class A2UIUpdateComponents(ApiModel):
 
 class A2UIUpdateDataModel(ApiModel):
     surfaceId: str
-    dataModel: dict[str, Any]
+    path: str = "/"
+    value: Any = None
 
 
 class A2UIDeleteSurface(ApiModel):
@@ -47,5 +48,7 @@ class A2UIActionOut(ApiModel):
 class A2UICatalogOut(ApiModel):
     catalogId: str
     version: str
+    protocolVersion: str
     components: list[str]
+    componentSchemas: dict[str, dict[str, Any]]
     actions: list[str]

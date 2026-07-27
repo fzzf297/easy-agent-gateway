@@ -1,6 +1,90 @@
 export type AgentTheme = "light" | "dark";
 export type AgentRenderMode = "markdown" | "text";
+export type AgentA2UIMode = "auto" | "off";
+export type AgentResponseMode = "TEXT" | "TEXT_WITH_A2UI" | "A2UI_ONLY";
 export type AgentHeaders = Record<string, string>;
+
+export type AgentA2UIProtocolVersion = "v0.9" | "v0.9.1";
+export type AgentA2UIDynamicValue<T> = T | { path: string };
+
+export interface AgentA2UIComponent {
+  id: string;
+  component: string;
+  [property: string]: unknown;
+}
+
+export interface AgentA2UICreateSurfaceMessage {
+  version: AgentA2UIProtocolVersion;
+  createSurface: {
+    surfaceId: string;
+    catalogId: string;
+    theme?: unknown;
+    sendDataModel?: boolean;
+  };
+}
+
+export interface AgentA2UIUpdateComponentsMessage {
+  version: AgentA2UIProtocolVersion;
+  updateComponents: {
+    surfaceId: string;
+    components: AgentA2UIComponent[];
+  };
+}
+
+export interface AgentA2UIUpdateDataModelMessage {
+  version: AgentA2UIProtocolVersion;
+  updateDataModel: {
+    surfaceId: string;
+    path?: string;
+    value?: unknown;
+  };
+}
+
+export interface AgentA2UIDeleteSurfaceMessage {
+  version: AgentA2UIProtocolVersion;
+  deleteSurface: { surfaceId: string };
+}
+
+export type AgentA2UIMessage =
+  | AgentA2UICreateSurfaceMessage
+  | AgentA2UIUpdateComponentsMessage
+  | AgentA2UIUpdateDataModelMessage
+  | AgentA2UIDeleteSurfaceMessage;
+
+export interface AgentA2UIAction {
+  name: string;
+  surfaceId: string;
+  sourceComponentId: string;
+  timestamp: string;
+  context: Record<string, unknown>;
+}
+
+export interface AgentA2UIActionInput {
+  conversationId: string;
+  messageId?: string;
+  surfaceId: string;
+  idempotencyKey: string;
+  action: { name: string; context: Record<string, unknown> };
+}
+
+export interface AgentA2UIActionResult {
+  ok: boolean;
+  message: string;
+  responseMode: AgentResponseMode;
+  text: string;
+  a2uiMessages: AgentA2UIMessage[];
+}
+
+export interface AgentA2UICatalog {
+  catalogId: string;
+  version: string;
+  protocolVersion: AgentA2UIProtocolVersion;
+  components: string[];
+  componentSchemas: Record<string, Record<string, unknown>>;
+  actions: string[];
+}
+
+export type AgentA2UIErrorPhase = "normalize" | "render" | "action" | "history";
 
 export interface AgentClientOptions {
   apiBaseUrl: string;
@@ -31,6 +115,9 @@ export interface AgentHistoryMessage {
   role: AgentMessageRole;
   content: string;
   createdAt: string;
+  responseMode?: AgentResponseMode;
+  surfaceIds?: string[];
+  a2uiMessages?: AgentA2UIMessage[];
 }
 
 export interface AgentHistory {
@@ -140,7 +227,7 @@ export interface AgentDoneEvent {
   type: "done";
   payload: {
     assistantContent: string;
-    responseMode?: "TEXT" | "TEXT_WITH_A2UI" | "A2UI_ONLY";
+    responseMode?: AgentResponseMode;
     surfaceIds?: string[];
   };
 }
@@ -154,7 +241,7 @@ export interface AgentStreamErrorEvent {
 export interface AgentA2UIMessageEvent {
   id?: string;
   type: "a2ui-message";
-  payload: Record<string, unknown>;
+  payload: AgentA2UIMessage | Record<string, unknown>;
 }
 
 export type AgentSseEvent =
@@ -179,6 +266,7 @@ export interface AgentChatElementProps {
   placeholder?: string;
   theme?: AgentTheme;
   renderMode?: AgentRenderMode;
+  a2uiMode?: AgentA2UIMode;
   headers?: AgentHeaders;
 }
 
@@ -187,7 +275,35 @@ export type AgentChatCustomEvent<TDetail> = CustomEvent<TDetail>;
 export interface AgentChatEventDetailMap {
   "session-created": AgentSession;
   "message-start": { sessionId: string; content: string };
-  "message-delta": { sessionId: string; text: string };
-  "message-done": { sessionId: string; content: string };
+  "message-delta": { sessionId: string; text: string; protocol?: "text-delta" };
+  "message-done": {
+    sessionId: string;
+    content: string;
+    responseMode?: AgentResponseMode;
+    surfaceIds: string[];
+  };
+  "a2ui-message": {
+    sessionId: string;
+    message: AgentA2UIMessage | Record<string, unknown>;
+    surfaceId?: string;
+  };
+  "a2ui-action-start": {
+    sessionId: string;
+    action: AgentA2UIAction;
+    idempotencyKey: string;
+  };
+  "a2ui-action-done": {
+    sessionId: string;
+    action: AgentA2UIAction;
+    idempotencyKey: string;
+    result: AgentA2UIActionResult;
+  };
+  "a2ui-error": {
+    sessionId?: string;
+    surfaceId?: string;
+    phase: AgentA2UIErrorPhase;
+    message: string;
+    detail?: unknown;
+  };
   "agent-error": { sessionId?: string; message: string; detail?: unknown };
 }

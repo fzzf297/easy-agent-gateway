@@ -1,6 +1,6 @@
 {
   "name": "@easy-agent-gateway/agent-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Framework-neutral web component for Easy Agent Gateway chat.",
   "license": "MIT",
   "repository": {
@@ -46,7 +46,11 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "@a2ui/lit": "0.10.2",
+    "@a2ui/web_core": "0.10.5",
     "dompurify": "3.4.12",
-    "markdown-it": "14.3.0"
+    "lit": "3.3.3",
+    "markdown-it": "14.3.0",
+    "zod": "3.25.76"
   }
 }

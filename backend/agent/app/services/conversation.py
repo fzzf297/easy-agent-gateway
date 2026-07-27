@@ -305,22 +305,21 @@ async def stream_response(session_id: str, content: str) -> AsyncIterator[str]:
             yield _sse_event("a2ui-message", message, _next_event_id())
         if generated.messages:
             response_mode = desired_mode
-            for surface in surfaces_from_a2ui_messages(generated.messages):
+            generated_surfaces = surfaces_from_a2ui_messages(generated.messages)
+            for surface in generated_surfaces:
                 surface_ids.append(surface["surfaceId"])
-                with get_connection() as conn:
-                    a2ui_store.upsert_surface(
-                        conn,
-                        surface_id=surface["surfaceId"],
-                        session_id=session_id,
-                        message_id=correlation_id,
-                        catalog_version=str(surface.get("catalogVersion") or ""),
-                        component_json=surface.get("componentJson") or {},
-                        data_model_json=surface.get("dataModelJson") or {},
-                    )
+            with get_connection() as conn:
+                a2ui_store.apply_messages(
+                    conn,
+                    session_id=session_id,
+                    message_id=correlation_id,
+                    messages=generated.messages,
+                )
 
     assistant_extra = {
         "responseMode": response_mode,
         "surfaces": surfaces_from_a2ui_messages(a2ui_emitted),
+        "a2uiMessages": a2ui_emitted,
     }
     _save_messages(session_id, content, saved_content, assistant_extra=assistant_extra)
     _save_audit(session_id, "message_completed", {

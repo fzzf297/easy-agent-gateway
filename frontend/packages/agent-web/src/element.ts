@@ -1,16 +1,26 @@
-import { AgentClient } from "./client";
+import type { A2uiSurface } from "@a2ui/lit/v0_9";
+
+import { AgentA2UIRuntime } from "./a2ui/runtime";
+import { AgentApiError, AgentClient } from "./client";
 import { renderMarkdown } from "./markdown";
 import { elementStyles } from "./styles";
 import type {
   AgentChatEventDetailMap,
+  AgentA2UIAction,
+  AgentA2UIMode,
   AgentHeaders,
   AgentHistoryMessage,
   AgentRenderMode,
+  AgentResponseMode,
   AgentSseEvent,
   AgentTheme
 } from "./types";
 
 type ChatMessage = Pick<AgentHistoryMessage, "role" | "content"> & {
+  id?: string;
+  responseMode?: AgentResponseMode;
+  surfaceIds?: string[];
+  a2uiText?: string;
   state?: "pending" | "error";
   error?: string;
 };
@@ -40,7 +50,8 @@ export class EasyAgentChatElement extends HTMLElementBase {
       "title",
       "placeholder",
       "theme",
-      "render-mode"
+      "render-mode",
+      "a2ui-mode"
     ];
   }
 
@@ -61,6 +72,12 @@ export class EasyAgentChatElement extends HTMLElementBase {
   private stickToBottom = true;
   private suppressLauncherClickUntil = 0;
   private assistantRenderFrame?: number;
+  private a2uiRuntime?: AgentA2UIRuntime;
+  private historyLoadVersion = 0;
+  private loadedSessionId = "";
+  private readonly actionKeys = new Map<string, string>();
+  private readonly actionsInFlight = new Set<string>();
+  private readonly chatInstanceId = createUniqueId();
 
   private readonly handleDocumentKeyDown = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || !this.opened || !this.shadowRoot?.activeElement) return;
@@ -81,16 +98,34 @@ export class EasyAgentChatElement extends HTMLElementBase {
   connectedCallback() {
     this.ownerDocument.addEventListener("keydown", this.handleDocumentKeyDown);
     this.ownerDocument.defaultView?.addEventListener("resize", this.handleViewportResize);
+    this.ensureA2UIRuntime();
     this.render();
+    void this.loadSessionHistory(this.sessionId);
   }
 
   disconnectedCallback() {
     this.ownerDocument.removeEventListener("keydown", this.handleDocumentKeyDown);
     this.ownerDocument.defaultView?.removeEventListener("resize", this.handleViewportResize);
     this.cancelAssistantRenderFrame();
+    this.historyLoadVersion += 1;
+    this.a2uiRuntime?.dispose();
+    this.a2uiRuntime = undefined;
   }
 
-  attributeChangedCallback() {
+  attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
+    if (oldValue === newValue) return;
+    if (name === "a2ui-mode") {
+      if (this.a2uiMode === "off") {
+        this.a2uiRuntime?.dispose();
+        this.a2uiRuntime = undefined;
+      } else if (this.isConnected) {
+        this.ensureA2UIRuntime();
+        void this.loadSessionHistory(this.sessionId, true);
+      }
+    }
+    if (name === "session-id" && this.isConnected && !this.loading) {
+      void this.loadSessionHistory(newValue || "", true);
+    }
     this.render();
   }
 
@@ -151,11 +186,79 @@ export class EasyAgentChatElement extends HTMLElementBase {
     this.setAttribute("render-mode", value);
   }
 
+  get a2uiMode(): AgentA2UIMode {
+    return this.getAttribute("a2ui-mode") === "off" ? "off" : "auto";
+  }
+
+  set a2uiMode(value: AgentA2UIMode) {
+    this.setAttribute("a2ui-mode", value);
+  }
+
   private get client() {
     return new AgentClient({
       apiBaseUrl: this.apiBaseUrl,
       headers: this.headers
     });
+  }
+
+  private ensureA2UIRuntime() {
+    if (this.a2uiMode === "off" || this.a2uiRuntime) return;
+    this.a2uiRuntime = new AgentA2UIRuntime(this.chatInstanceId, {
+      onAction: (action) => this.handleA2UIAction(action),
+      onSurfaceDeleted: (surfaceId) => {
+        for (const message of this.messages) {
+          message.surfaceIds = message.surfaceIds?.filter((id) => id !== surfaceId);
+        }
+      },
+      onError: (surfaceId, error) => {
+        this.emitA2UIError("render", error, surfaceId);
+      }
+    });
+  }
+
+  private async loadSessionHistory(sessionId: string, force = false) {
+    const loadVersion = ++this.historyLoadVersion;
+    if (sessionId !== this.loadedSessionId) this.actionKeys.clear();
+    if (!sessionId) {
+      this.loadedSessionId = "";
+      this.messages = [];
+      this.a2uiRuntime?.reset();
+      this.render();
+      return;
+    }
+    if (!force && this.loadedSessionId === sessionId) return;
+
+    try {
+      const history = await this.client.getHistory(sessionId);
+      if (loadVersion !== this.historyLoadVersion || sessionId !== this.sessionId) return;
+      this.ensureA2UIRuntime();
+      this.a2uiRuntime?.reset();
+      this.messages = history.messages.map((message) => ({
+        id: undefined,
+        role: message.role,
+        content: message.content,
+        responseMode: message.responseMode,
+        surfaceIds: [],
+        state: undefined
+      }));
+      if (this.a2uiMode === "auto") {
+        history.messages.forEach((historyMessage, index) => {
+          if (historyMessage.role !== "assistant") return;
+          const target = this.messages[index];
+          for (const a2uiMessage of historyMessage.a2uiMessages || []) {
+            this.processA2UIMessage(sessionId, a2uiMessage, target, false, false);
+          }
+          if (!target.surfaceIds?.length && historyMessage.surfaceIds?.length) {
+            target.surfaceIds = [...historyMessage.surfaceIds];
+          }
+        });
+      }
+      this.loadedSessionId = sessionId;
+      this.render();
+    } catch (error) {
+      if (loadVersion !== this.historyLoadVersion) return;
+      this.emitA2UIError("history", error);
+    }
   }
 
   private async handleSubmit(event: Event) {
@@ -168,8 +271,14 @@ export class EasyAgentChatElement extends HTMLElementBase {
     this.requestFailed = false;
     this.inputValue = "";
     this.statusText = "Thinking";
-    this.messages.push({ role: "user", content });
-    this.messages.push({ role: "assistant", content: "", state: "pending" });
+    this.messages.push({ id: createUniqueId(), role: "user", content });
+    this.messages.push({
+      id: createUniqueId(),
+      role: "assistant",
+      content: "",
+      surfaceIds: [],
+      state: "pending"
+    });
     this.stickToBottom = true;
     this.render();
     this.focusInput();
@@ -227,16 +336,25 @@ export class EasyAgentChatElement extends HTMLElementBase {
     }
 
     if (event.type === "a2ui-message") {
-      this.emit("a2ui-message", { sessionId, payload: event.payload });
+      this.processA2UIMessage(sessionId, event.payload);
       return;
     }
 
     if (event.type === "done") {
       const payload = event.payload as
-        | { assistantContent?: string; responseMode?: string; surfaceIds?: string[] }
+        | {
+            assistantContent?: string;
+            responseMode?: AgentResponseMode;
+            surfaceIds?: string[];
+          }
         | undefined;
-      const content = payload?.assistantContent || this.currentAssistantContent();
+      const content = payload?.assistantContent ?? this.currentAssistantContent();
       this.replaceAssistantText(content);
+      const last = this.messages[this.messages.length - 1];
+      if (last?.role === "assistant") {
+        last.responseMode = payload?.responseMode;
+        last.surfaceIds = uniqueStrings([...(last.surfaceIds || []), ...(payload?.surfaceIds || [])]);
+      }
       this.emit("message-done", {
         sessionId,
         content,
@@ -252,6 +370,125 @@ export class EasyAgentChatElement extends HTMLElementBase {
       this.requestFailed = true;
       this.fail(payload?.code || "Agent returned an error", event.payload);
     }
+  }
+
+  private processA2UIMessage(
+    sessionId: string,
+    input: unknown,
+    preferredTarget?: ChatMessage,
+    sync = true,
+    emitEvent = true
+  ) {
+    if (this.a2uiMode === "off") {
+      this.emit("a2ui-message", {
+        sessionId,
+        message: input as Record<string, unknown>
+      });
+      return;
+    }
+    this.ensureA2UIRuntime();
+    try {
+      const processed = this.a2uiRuntime?.process(input);
+      if (!processed) return;
+      const existingTarget = this.messages.find((message) =>
+        message.surfaceIds?.includes(processed.surfaceId)
+      );
+      const target = existingTarget || preferredTarget || this.lastAssistantMessage();
+      if (processed.operation === "deleteSurface") {
+        for (const message of this.messages) {
+          message.surfaceIds = message.surfaceIds?.filter((id) => id !== processed.surfaceId);
+        }
+      } else if (target?.role === "assistant") {
+        target.surfaceIds = uniqueStrings([...(target.surfaceIds || []), processed.surfaceId]);
+      }
+      if (emitEvent) {
+        this.emit("a2ui-message", {
+          sessionId,
+          message: processed.message,
+          surfaceId: processed.surfaceId
+        });
+      }
+      if (sync && processed.operation === "deleteSurface") this.render();
+      else if (sync) this.flushLastAssistantMessageSync();
+    } catch (error) {
+      const target = preferredTarget || this.lastAssistantMessage();
+      if (target && !target.content.trim()) target.a2uiText = "交互界面暂时无法显示。";
+      this.emitA2UIError("normalize", error);
+      if (sync) this.flushLastAssistantMessageSync();
+    }
+  }
+
+  private async handleA2UIAction(action: AgentA2UIAction) {
+    const sessionId = this.sessionId;
+    if (!sessionId) throw new Error("A2UI action requires a session");
+    const actionKey = `${sessionId}:${action.surfaceId}:${action.sourceComponentId}:${action.name}`;
+    if (this.actionsInFlight.has(actionKey)) return;
+    const idempotencyKey = this.actionKeys.get(actionKey) || createUniqueId();
+    this.actionKeys.set(actionKey, idempotencyKey);
+    this.actionsInFlight.add(actionKey);
+    this.emit("a2ui-action-start", {
+      sessionId,
+      action,
+      idempotencyKey
+    });
+
+    try {
+      const result = await this.client.executeA2UIAction({
+        conversationId: sessionId,
+        messageId: "",
+        surfaceId: action.surfaceId,
+        idempotencyKey,
+        action: { name: action.name, context: action.context }
+      });
+      this.actionKeys.delete(actionKey);
+      if (sessionId !== this.sessionId) return;
+      const target =
+        this.messages.find((message) => message.surfaceIds?.includes(action.surfaceId)) ||
+        this.lastAssistantMessage();
+      for (const message of result.a2uiMessages || []) {
+        this.processA2UIMessage(sessionId, message, target, false);
+      }
+      if (target) {
+        target.a2uiText = result.text || result.message || "";
+        target.responseMode = result.responseMode;
+      }
+      this.emit("a2ui-action-done", {
+        sessionId,
+        action,
+        idempotencyKey,
+        result
+      });
+      this.render();
+    } catch (error) {
+      if (error instanceof AgentApiError && error.status >= 400 && error.status < 500) {
+        this.actionKeys.delete(actionKey);
+      }
+      if (sessionId === this.sessionId) this.emitA2UIError("action", error, action.surfaceId);
+      throw error;
+    } finally {
+      this.actionsInFlight.delete(actionKey);
+    }
+  }
+
+  private emitA2UIError(
+    phase: "normalize" | "render" | "action" | "history",
+    error: unknown,
+    surfaceId?: string
+  ) {
+    this.emit("a2ui-error", {
+      sessionId: this.sessionId || undefined,
+      surfaceId,
+      phase,
+      message: error instanceof Error ? error.message : "A2UI processing failed",
+      detail: error
+    });
+  }
+
+  private lastAssistantMessage() {
+    for (let index = this.messages.length - 1; index >= 0; index -= 1) {
+      if (this.messages[index]?.role === "assistant") return this.messages[index];
+    }
+    return undefined;
   }
 
   private appendAssistantText(text: string) {
@@ -273,7 +510,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
     if (last?.role !== "assistant") return;
     last.state = undefined;
     last.error = undefined;
-    if (!last.content.trim()) last.content = "暂未返回有效内容。";
+    if (!last.content.trim() && !last.surfaceIds?.length) last.content = "暂未返回有效内容。";
   }
 
   private currentAssistantContent() {
@@ -323,6 +560,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
       <style>${elementStyles}</style>
       ${this.opened ? this.renderPanel() : this.renderLauncher()}
     `;
+    this.mountA2UISurfaces(this.shadowRoot);
     this.animatePanel = false;
 
     const launcher = this.shadowRoot.querySelector<HTMLButtonElement>(".launcher");
@@ -881,7 +1119,20 @@ export class EasyAgentChatElement extends HTMLElementBase {
     const last = this.messages[this.messages.length - 1];
     if (!row || last?.role !== "assistant") return;
     row.innerHTML = this.renderMessageBubble(last);
+    this.mountA2UISurfaces(row);
     this.syncMessageScroll();
+  }
+
+  private mountA2UISurfaces(root: ParentNode) {
+    if (this.a2uiMode === "off" || !this.a2uiRuntime) return;
+    root
+      .querySelectorAll<HTMLElement>("a2ui-surface[data-a2ui-surface-id]")
+      .forEach((element) => {
+        const surfaceId = element.dataset.a2uiSurfaceId;
+        if (!surfaceId) return;
+        const surface = this.a2uiRuntime?.getSurface(surfaceId);
+        if (surface) (element as A2uiSurface).surface = surface;
+      });
   }
 
   private scheduleLastAssistantMessageSync() {
@@ -954,8 +1205,21 @@ export class EasyAgentChatElement extends HTMLElementBase {
     const content = message.content
       ? `<div class="message__content ${contentClass}">${renderedContent}</div>`
       : "";
+    const surfaceIds =
+      this.a2uiMode === "auto" ? uniqueStrings(message.surfaceIds || []) : [];
+    const surfaces = surfaceIds
+      .map(
+        (surfaceId) =>
+          `<a2ui-surface class="a2ui-surface-host" data-a2ui-surface-id="${escapeAttribute(
+            surfaceId
+          )}"></a2ui-surface>`
+      )
+      .join("");
+    const a2uiText = message.a2uiText
+      ? `<div class="a2ui-inline-status" role="status">${escapeHtml(message.a2uiText)}</div>`
+      : "";
     const pending =
-      message.state === "pending" && !message.content
+      message.state === "pending" && !message.content && !surfaceIds.length
         ? `<span class="typing" role="status"><span>正在处理</span><span class="typing__dots" aria-hidden="true"><i></i><i></i><i></i></span></span>`
         : "";
     const error =
@@ -965,7 +1229,7 @@ export class EasyAgentChatElement extends HTMLElementBase {
           )}</span></div>`
         : "";
     const stateClass = message.state ? ` message--${message.state}` : "";
-    return `<div class="message assistant${stateClass}" part="message">${content}${pending}${error}</div>`;
+    return `<div class="message assistant${stateClass}" part="message">${content}${surfaces}${a2uiText}${pending}${error}</div>`;
   }
 }
 
@@ -995,6 +1259,15 @@ function clamp(value: number, minimum: number, maximum: number) {
 
 function isNearScrollBottom(element: HTMLElement) {
   return element.scrollHeight - element.scrollTop - element.clientHeight <= 48;
+}
+
+function createUniqueId() {
+  return globalThis.crypto?.randomUUID?.() ||
+    `eag-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 const drawerResizeHandle = `

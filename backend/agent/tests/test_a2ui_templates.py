@@ -1,4 +1,4 @@
-from app.a2ui.catalog import CATALOG_ID, CATALOG_VERSION
+from app.a2ui.catalog import A2UI_PROTOCOL_VERSION, CATALOG_ID
 from app.a2ui.intent import route_intent
 from app.a2ui.templates import build_query_result_table, build_write_confirm_card
 from app.a2ui.validator import validate_a2ui_message
@@ -15,9 +15,10 @@ def test_query_result_table_messages_are_valid() -> None:
     for msg in messages:
         validate_a2ui_message(msg)
     create = messages[0]["createSurface"]
+    assert messages[0]["version"] == A2UI_PROTOCOL_VERSION
     assert create["catalogId"] == CATALOG_ID
-    assert create["catalogVersion"] == CATALOG_VERSION
-    data = messages[2]["updateDataModel"]["dataModel"]
+    assert set(create) == {"surfaceId", "catalogId"}
+    data = messages[2]["updateDataModel"]["value"]
     assert data["table"]["rows"][0]["code"] == "demo"
 
 
@@ -33,9 +34,11 @@ def test_write_confirm_card_messages_are_valid() -> None:
         validate_a2ui_message(msg)
     components = messages[1]["updateComponents"]["components"]
     button = next(c for c in components if c["component"] == "AiConfirmButton")
-    assert button["action"]["name"] == "interface.write.confirm"
-    assert button["action"]["context"]["projectCode"] == "demo"
-    assert button["action"]["context"]["interfaceCode"] == "user_create"
+    event = button["action"]["event"]
+    assert event["name"] == "interface.write.confirm"
+    assert event["context"]["projectCode"] == "demo"
+    assert event["context"]["interfaceCode"] == "user_create"
+    assert event["context"]["params"] == {"path": "/form/params"}
 
 
 def test_route_intent_defaults_to_text() -> None:

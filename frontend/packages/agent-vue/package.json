@@ -1,6 +1,6 @@
 {
   "name": "@easy-agent-gateway/agent-vue",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vue wrapper for Easy Agent Gateway chat.",
   "license": "MIT",
   "repository": {
@@ -28,8 +28,9 @@
     "access": "public"
   },
   "scripts": {
-    "lint": "eslint src --ext .ts --max-warnings=0",
+    "lint": "eslint src tests --ext .ts --max-warnings=0",
     "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
     "build": "vite build && vue-tsc -p tsconfig.build.json --declaration --emitDeclarationOnly"
   },
   "peerDependencies": {
@@ -43,8 +44,10 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^8.57.1",
+    "jsdom": "29.1.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
+    "vitest": "^2.1.8",
     "vue": "^3.5.13",
     "vue-eslint-parser": "^9.4.3",
     "vue-tsc": "^2.2.0"

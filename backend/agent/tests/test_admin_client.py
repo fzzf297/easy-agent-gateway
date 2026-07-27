@@ -1,4 +1,5 @@
 import os
+from dataclasses import replace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -8,6 +9,7 @@ os.environ.setdefault("AGENT_LLM_API_KEY", "test-key")
 os.environ.setdefault("AGENT_ADMIN_BASE_URL", "http://localhost:8000")
 os.environ.setdefault("AGENT_ADMIN_TIMEOUT", "5")
 
+from app.core.config import settings  # noqa: E402
 from app.core.errors import AppError, NotFoundError  # noqa: E402
 from app.services.admin_client import AdminClient, build_admin_client  # noqa: E402
 
@@ -217,6 +219,12 @@ async def test_500_raises_app_error_502() -> None:
 
 
 def test_build_admin_client_uses_settings() -> None:
-    client = build_admin_client()
+    configured = replace(
+        settings,
+        admin_base_url="http://localhost:8000",
+        admin_timeout=5,
+    )
+    with patch("app.services.admin_client.settings", configured):
+        client = build_admin_client()
     assert client._base_url == "http://localhost:8000"
     assert client._timeout == 5

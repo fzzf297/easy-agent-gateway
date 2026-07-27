@@ -1,6 +1,6 @@
 {
   "name": "@easy-agent-gateway/agent-react",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "React wrapper for Easy Agent Gateway chat.",
   "license": "MIT",
   "repository": {
@@ -28,8 +28,9 @@
     "access": "public"
   },
   "scripts": {
-    "lint": "eslint src --ext .ts,.tsx --max-warnings=0",
+    "lint": "eslint src tests --ext .ts,.tsx --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "build": "vite build && tsc -p tsconfig.build.json --emitDeclarationOnly"
   },
   "peerDependencies": {
@@ -46,9 +47,11 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^8.57.1",
+    "jsdom": "29.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
   }
 }

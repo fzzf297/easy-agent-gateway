@@ -26,6 +26,7 @@ class MessageOut(ApiModel):
     createdAt: str
     responseMode: str = "TEXT"
     surfaceIds: list[str] = Field(default_factory=list)
+    a2uiMessages: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class HistoryOut(ApiModel):

@@ -1,6 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
+from app.a2ui.catalog import A2UI_PROTOCOL_VERSION, CATALOG_ID, CATALOG_VERSION
 from app.schemas.a2ui import (
     A2UIActionIn,
     A2UIActionOut,
@@ -15,12 +16,10 @@ from app.schemas.session import MessageOut
 def test_create_surface_requires_ids() -> None:
     surface = A2UICreateSurface(
         surfaceId="s1",
-        catalogId="ruoyi-agent-a2ui",
-        catalogVersion="0.1.0",
-        rootId="root",
+        catalogId=CATALOG_ID,
     )
     assert surface.surfaceId == "s1"
-    assert surface.rootId == "root"
+    assert surface.catalogId == CATALOG_ID
 
 
 def test_update_components_rejects_too_many() -> None:
@@ -30,8 +29,10 @@ def test_update_components_rejects_too_many() -> None:
 
 
 def test_update_data_model_accepts_dict() -> None:
-    model = A2UIUpdateDataModel(surfaceId="s1", dataModel={"form": {"name": "x"}})
-    assert model.dataModel["form"]["name"] == "x"
+    model = A2UIUpdateDataModel(
+        surfaceId="s1", path="/", value={"form": {"name": "x"}}
+    )
+    assert model.value["form"]["name"] == "x"
 
 
 def test_action_in_requires_idempotency_key() -> None:
@@ -52,12 +53,14 @@ def test_action_out_defaults() -> None:
 
 def test_catalog_out_shape() -> None:
     catalog = A2UICatalogOut(
-        catalogId="ruoyi-agent-a2ui",
-        version="0.1.0",
+        catalogId=CATALOG_ID,
+        version=CATALOG_VERSION,
+        protocolVersion=A2UI_PROTOCOL_VERSION,
         components=["AiText"],
+        componentSchemas={"AiText": {"required": ["text"]}},
         actions=["interface.write.confirm"],
     )
-    assert catalog.catalogId == "ruoyi-agent-a2ui"
+    assert catalog.catalogId == CATALOG_ID
 
 
 def test_message_out_includes_a2ui_fields() -> None:
@@ -67,9 +70,16 @@ def test_message_out_includes_a2ui_fields() -> None:
         createdAt="2026-07-24 00:00:00",
         responseMode="TEXT_WITH_A2UI",
         surfaceIds=["s1"],
+        a2uiMessages=[
+            {
+                "version": A2UI_PROTOCOL_VERSION,
+                "createSurface": {"surfaceId": "s1", "catalogId": CATALOG_ID},
+            }
+        ],
     )
     assert msg.responseMode == "TEXT_WITH_A2UI"
     assert msg.surfaceIds == ["s1"]
+    assert msg.a2uiMessages[0]["version"] == A2UI_PROTOCOL_VERSION
 
 
 def test_message_out_defaults_to_text_mode() -> None:

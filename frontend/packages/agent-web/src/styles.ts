@@ -761,6 +761,24 @@ svg {
   height: 19px;
 }
 
+.a2ui-surface-host {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin-top: 10px;
+  color: var(--eag-text);
+}
+
+.a2ui-inline-status {
+  padding: 8px 10px;
+  margin-top: 8px;
+  color: var(--eag-muted);
+  font-size: 12px;
+  background: color-mix(in srgb, var(--eag-surface) 88%, transparent);
+  border: 1px solid var(--eag-border);
+  border-radius: 8px;
+}
+
 @media (max-width: 480px) {
   :host {
     --eag-launcher-gap: 18px;

@@ -2,6 +2,9 @@ import { normalizeAgentEvent, SseStreamParser } from "./sse";
 import type {
   AgentAuditQuery,
   AgentAuditResponse,
+  AgentA2UIActionInput,
+  AgentA2UIActionResult,
+  AgentA2UICatalog,
   AgentClientOptions,
   AgentHealth,
   AgentHistory,
@@ -74,6 +77,29 @@ export class AgentClient {
       { headers: this.defaultHeaders() }
     );
     return this.readJson<AgentHistory>(response);
+  }
+
+  async getA2UICatalog(): Promise<AgentA2UICatalog> {
+    const response = await this.fetchImpl(
+      buildAgentUrl(this.apiBaseUrl, "/api/agent/a2ui/catalog"),
+      { headers: this.defaultHeaders() }
+    );
+    return this.readJson<AgentA2UICatalog>(response);
+  }
+
+  async executeA2UIAction(input: AgentA2UIActionInput): Promise<AgentA2UIActionResult> {
+    const response = await this.fetchImpl(buildAgentUrl(this.apiBaseUrl, "/api/agent/actions"), {
+      method: "POST",
+      headers: this.jsonHeaders(),
+      body: JSON.stringify({
+        conversationId: input.conversationId,
+        messageId: input.messageId || "",
+        surfaceId: input.surfaceId,
+        idempotencyKey: input.idempotencyKey,
+        action: input.action
+      })
+    });
+    return this.readJson<AgentA2UIActionResult>(response);
   }
 
   async scoreSession(sessionId: string, input: AgentScoreInput): Promise<AgentSessionScore> {

@@ -195,6 +195,62 @@ describe("AgentClient", () => {
     });
   });
 
+  it("uses the catalog and action gateway envelopes", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        Response.json({
+          catalogId: "urn:easy-agent-gateway:a2ui:catalog:ruoyi-agent:v1",
+          version: "1.0.0",
+          protocolVersion: "v0.9",
+          components: [],
+          componentSchemas: {},
+          actions: []
+        })
+      )
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          message: "done",
+          responseMode: "TEXT",
+          text: "done",
+          a2uiMessages: []
+        })
+      );
+    const client = new AgentClient({
+      apiBaseUrl: "http://localhost:8001",
+      fetchImpl: fetchImpl as unknown as typeof fetch
+    });
+
+    await client.getA2UICatalog();
+    await client.executeA2UIAction({
+      conversationId: "session-1",
+      surfaceId: "surface-1",
+      idempotencyKey: "idem-1-unique",
+      action: { name: "interface.write.confirm", context: { value: 1 } }
+    });
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:8001/api/agent/a2ui/catalog",
+      expect.any(Object)
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8001/api/agent/actions",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          conversationId: "session-1",
+          messageId: "",
+          surfaceId: "surface-1",
+          idempotencyKey: "idem-1-unique",
+          action: { name: "interface.write.confirm", context: { value: 1 } }
+        })
+      })
+    );
+  });
+
   it("sends Last-Event-ID only when explicitly supplied", async () => {
     const fetchImpl = vi.fn(async () =>
       new Response('id: 8\ndata: {"type":"done","payload":{"assistantContent":"ok"}}\n\n')

@@ -196,6 +196,8 @@ AGENT_THIRD_PARTY_MAX_RESPONSE_BYTES
 - `PUT /api/agent/sessions/{id}/score`：提交或覆盖会话评分。
 - `POST /api/agent/interfaces/test`：试运行单个已配置只读业务接口。
 - `GET /api/agent/audit`：查询审计事件，可按会话附带消息和评分。
+- `GET /api/agent/a2ui/catalog`：读取固定企业 A2UI Catalog。
+- `POST /api/agent/actions`：执行带幂等键的 A2UI Action。
 
 agent 自身接口不鉴权，通过 HTTP 调用 admin 的 `/api/app/*` 获取项目与接口配置；对标记为 `kind: api` 且 `readOnly: true` 的接口，Agent 会按项目 `baseUrl` 调用三方只读业务 API（认证通过三方 bridge 与 `AGENT_PROJECT_SECRETS` 注入）。
 
@@ -213,7 +215,7 @@ pnpm add @easy-agent-gateway/agent-web
 <script type="module">
   import "@easy-agent-gateway/agent-web";
 </script>
-<easy-agent-chat api-base-url="http://localhost:8001" user-label="demo"></easy-agent-chat>
+<easy-agent-chat api-base-url="http://localhost:8001" user-label="demo" a2ui-mode="auto"></easy-agent-chat>
 ```
 
 React：
@@ -225,7 +227,7 @@ pnpm add @easy-agent-gateway/agent-react
 ```tsx
 import { AgentChat } from "@easy-agent-gateway/agent-react";
 
-<AgentChat apiBaseUrl="http://localhost:8001" userLabel="demo" />;
+<AgentChat apiBaseUrl="http://localhost:8001" userLabel="demo" a2uiEnabled />;
 ```
 
 Vue：
@@ -240,7 +242,7 @@ import { AgentChat } from "@easy-agent-gateway/agent-vue";
 </script>
 
 <template>
-  <AgentChat api-base-url="http://localhost:8001" user-label="demo" />
+  <AgentChat api-base-url="http://localhost:8001" user-label="demo" :a2ui-enabled="true" />
 </template>
 ```
 
@@ -248,6 +250,7 @@ import { AgentChat } from "@easy-agent-gateway/agent-vue";
 [`frontend/packages/agent-web/README.md`](frontend/packages/agent-web/README.md)。
 聊天插件默认安全地按 Markdown 渲染助手返回值，并可通过 `render-mode="text"`
 或适配器的 `renderMode="text"` 切换为纯文本。
+A2UI 默认启用；协议根 ID `root` 只存在于 Surface 模型中，不会写入宿主 DOM。
 
 ## Docker
 

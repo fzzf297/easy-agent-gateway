@@ -20,8 +20,15 @@ import "@easy-agent-gateway/agent-web";
 <easy-agent-chat
   api-base-url="https://agent.example.com"
   user-label="demo"
+  a2ui-mode="auto"
 ></easy-agent-chat>
 ```
+
+`a2ui-mode` 默认为 `auto`。组件会校验并渲染内置企业 Catalog，兼容旧格式消息；设置为
+`off` 时只保留文本与 Markdown。A2UI 协议中的根组件 ID 仍为 `root`，但不会映射成
+DOM `id="root"`。确实需要 DOM ID 的表单控件使用
+`eag-a2ui-{chatInstanceId}-{surfaceToken}-{componentToken}` 命名，并通过
+`data-a2ui-surface-id` 关联 Surface，因此可与宿主的 `id="root"` 及多个聊天实例共存。
 
 助手返回值默认按 Markdown 渲染，支持标题、列表、引用、表格、链接和代码块。Markdown
 原始 HTML、可执行链接和远程图片默认禁用，最终 HTML 会在浏览器中经过安全过滤。
@@ -41,7 +48,7 @@ React 和 Vue 适配器对应使用 `renderMode="text"`；默认值均为 `markd
 纯 HTML 页面可通过固定版本的 CDN 文件注册组件：
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/@easy-agent-gateway/agent-web@0.1.0/dist/index.umd.cjs"></script>
+<script src="https://cdn.jsdelivr.net/npm/@easy-agent-gateway/agent-web@0.2.0/dist/index.umd.cjs"></script>
 ```
 
 ## SDK
@@ -54,6 +61,7 @@ const client = new AgentClient({ apiBaseUrl: "https://agent.example.com" });
 await client.getHealth();
 const session = await client.createSession("张三");
 await client.getHistory(session.sessionId);
+await client.getA2UICatalog();
 await client.sendMessage(session.sessionId, "查询用户列表", {
   onEvent: (event) => console.log(event)
 });
@@ -65,6 +73,22 @@ await client.testInterface({
 });
 await client.getAudit({ sessionId: session.sessionId, includeMessages: true });
 ```
+
+A2UI Action 由组件自动发送，也可通过 SDK 调用：
+
+```ts
+await client.executeA2UIAction({
+  conversationId: session.sessionId,
+  messageId: "",
+  surfaceId,
+  idempotencyKey: crypto.randomUUID(),
+  action: { name: "interface.write.confirm", context }
+});
+```
+
+Web Component 会派发 `a2ui-message`、`a2ui-action-start`、`a2ui-action-done` 和
+`a2ui-error`；`message-done` 额外包含 `responseMode` 与 `surfaceIds`。Action 请求当前
+没有应用层鉴权，生产环境必须由内网边界或 API 网关保护。
 
 服务端目前不要求鉴权。若部署层增加了网关请求头，可通过 `AgentClient` 的 `headers` 或组件元素的 `headers` 属性传入。
 

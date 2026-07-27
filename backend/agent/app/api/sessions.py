@@ -4,8 +4,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Header
 
+from app.a2ui.surface_builder import messages_from_surface_snapshot
 from app.core.errors import NotFoundError
 from app.db.database import get_connection
+from app.repositories import a2ui_store
 from app.repositories import sessions as session_repo
 from app.schemas.session import (
     CreateSessionIn,
@@ -63,15 +65,34 @@ def get_history(session_id: str) -> HistoryOut:
     _require_session(session_id)
     with get_connection() as conn:
         rows = session_repo.list_messages(conn, session_id)
+        surface_rows = a2ui_store.list_surfaces(conn, session_id)
+    surfaces_by_id = {row["surface_id"]: row for row in surface_rows}
     messages = []
     for row in rows:
         payload = json.loads(row["content_json"])
         surfaces = payload.get("surfaces") or []
-        surface_ids = [
+        stored_surface_ids = [
             item.get("surfaceId")
             for item in surfaces
             if isinstance(item, dict) and item.get("surfaceId")
         ]
+        surface_ids = []
+        a2ui_messages = []
+        has_persisted_surface = False
+        for surface_id in stored_surface_ids:
+            surface = surfaces_by_id.get(surface_id)
+            if surface:
+                has_persisted_surface = True
+                if surface.get("status") == "deleted":
+                    continue
+                surface_ids.append(surface_id)
+                a2ui_messages.extend(messages_from_surface_snapshot(surface))
+            else:
+                surface_ids.append(surface_id)
+        if not a2ui_messages and not has_persisted_surface:
+            stored_messages = payload.get("a2uiMessages") or []
+            if isinstance(stored_messages, list):
+                a2ui_messages = stored_messages
         messages.append(
             MessageOut(
                 role=row["role"],
@@ -79,6 +100,7 @@ def get_history(session_id: str) -> HistoryOut:
                 createdAt=row["created_at"],
                 responseMode=payload.get("responseMode", "TEXT"),
                 surfaceIds=surface_ids,
+                a2uiMessages=a2ui_messages,
             )
         )
     return HistoryOut(sessionId=session_id, messages=messages)

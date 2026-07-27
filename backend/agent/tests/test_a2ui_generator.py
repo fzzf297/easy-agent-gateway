@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from app.a2ui.catalog import CATALOG_ID, CATALOG_VERSION
+from app.a2ui.catalog import A2UI_PROTOCOL_VERSION, CATALOG_ID
 from app.a2ui.generator import generate_a2ui
 
 
@@ -46,6 +46,7 @@ async def test_generator_llm_repair_then_success() -> None:
         calls["n"] += 1
         if calls["n"] == 1:
             bad = {
+                "version": A2UI_PROTOCOL_VERSION,
                 "updateComponents": {
                     "surfaceId": "x",
                     "components": [{"id": "a", "component": "Evil"}],
@@ -55,11 +56,10 @@ async def test_generator_llm_repair_then_success() -> None:
         return json.dumps(
             [
                 {
+                    "version": A2UI_PROTOCOL_VERSION,
                     "createSurface": {
                         "surfaceId": "s1",
                         "catalogId": CATALOG_ID,
-                        "catalogVersion": CATALOG_VERSION,
-                        "rootId": "root",
                     }
                 }
             ]

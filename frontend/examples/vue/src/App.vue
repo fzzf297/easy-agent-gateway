@@ -5,7 +5,9 @@
       api-base-url="http://localhost:8001"
       user-label="vue-demo"
       title="业务助手"
+      :a2ui-enabled="true"
       @message-done="handleDone"
+      @a2ui-action-done="handleDone"
     />
   </main>
 </template>

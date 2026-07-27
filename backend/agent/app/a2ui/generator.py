@@ -4,7 +4,7 @@ from collections.abc import Awaitable
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
-from app.a2ui.catalog import COMPONENTS
+from app.a2ui.catalog import A2UI_PROTOCOL_VERSION, CATALOG_ID, COMPONENT_SCHEMAS
 from app.a2ui.surface_builder import build_validated_query_messages
 from app.a2ui.templates import build_write_confirm_card
 from app.a2ui.validator import A2UIValidationError, validate_a2ui_message
@@ -85,11 +85,14 @@ async def generate_a2ui(
 
 
 def _build_prompt(*, intent: str, context: dict[str, Any], user_text: str) -> str:
-    component_list = ", ".join(sorted(COMPONENTS))
+    component_contract = json.dumps(COMPONENT_SCHEMAS, ensure_ascii=False)
     return (
         "你是 A2UI 生成器。只输出 JSON 数组，不要 Markdown。"
-        f"可用组件：{component_list}。"
-        "每个元素只能包含 createSurface/updateComponents/updateDataModel/deleteSurface 之一。"
+        f"协议版本：{A2UI_PROTOCOL_VERSION}，Catalog：{CATALOG_ID}。"
+        f"组件契约：{component_contract}。"
+        "每个元素必须包含 version，且只能再包含 "
+        "createSurface/updateComponents/updateDataModel/deleteSurface 之一。"
+        "根组件 id 必须为 root；数据更新使用 path/value；Action 使用 action.event。"
         f"意图：{intent}\n用户：{user_text}\n上下文：{json.dumps(context, ensure_ascii=False)}"
     )
 
